@@ -32,7 +32,7 @@ const NavBar = () => {
           variant="outlined" 
           sx={{ ml: 2, color: "#A7D8C9", borderColor: "#A7D8C9" }} 
           component={Link} 
-          to="/signin"
+          to="/login"
         >
           Sign In
         </Button>
