@@ -1,0 +1,442 @@
+/* src/components/AIScheduler/AIScheduler.css */
+.ai-scheduler {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    color: #333;
+  }
+  
+  .scheduler-header {
+    text-align: center;
+    margin-bottom: 30px;
+    background-color: #3f51b5;
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .scheduler-header h1 {
+    margin: 0;
+    font-size: 28px;
+  }
+  
+  .subtitle {
+    margin-top: 10px;
+    font-size: 16px;
+    opacity: 0.8;
+  }
+  
+  .scheduler-content {
+    background-color: #f5f7fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 25px;
+  }
+  
+  /* Error message */
+  .error-message {
+    background-color: #fee2e2;
+    border-left: 4px solid #ef4444;
+    color: #b91c1c;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+  }
+  
+  /* Configuration Panel */
+  .configuration-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+  }
+  
+  .params-section {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .params-section h3 {
+    margin-top: 0;
+    color: #2c5282;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 10px;
+  }
+  
+  .date-inputs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .date-inputs input {
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+  }
+  
+  .checkbox-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+  }
+  
+  .checkbox-options label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  
+  .slider-options {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .weight-slider {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .weight-slider label {
+    font-weight: bold;
+  }
+  
+  .weight-slider input {
+    width: 100%;
+  }
+  
+  .weight-total {
+    margin-top: 15px;
+    font-weight: bold;
+    text-align: right;
+  }
+  
+  .weight-warning {
+    color: #e53e3e;
+    font-weight: normal;
+  }
+  
+  .action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+  }
+  
+  .generate-btn {
+    background-color: #3182ce;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .generate-btn:hover {
+    background-color: #2c5282;
+  }
+  
+  .generate-btn:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+  }
+  
+  .send-email-btn {
+    background-color: #38a169;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .send-email-btn:hover {
+    background-color: #2f855a;
+  }
+  
+  .adjust-btn {
+    background-color: #dd6b20;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .adjust-btn:hover {
+    background-color: #c05621;
+  }
+  
+  .reset-btn, .back-btn {
+    background-color: #718096;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .reset-btn:hover, .back-btn:hover {
+    background-color: #4a5568;
+  }
+  
+  /* Generating status */
+  .generating-status {
+    text-align: center;
+    margin: 30px 0;
+    padding: 20px;
+    background-color: #ebf8ff;
+    border-radius: 8px;
+    border: 1px solid #bee3f8;
+  }
+  
+  .spinner {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(66, 153, 225, 0.2);
+    border-radius: 50%;
+    border-top-color: #3182ce;
+    animation: spin 1s ease-in-out infinite;
+    margin-bottom: 15px;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  .algorithm-steps {
+    max-width: 500px;
+    margin: 20px auto 0;
+    text-align: left;
+  }
+  
+  .step {
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    background-color: #edf2f7;
+    color: #718096;
+    position: relative;
+    padding-left: 30px;
+  }
+  
+  .step::before {
+    content: "";
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #cbd5e0;
+  }
+  
+  .step.completed {
+    background-color: #e6fffa;
+    color: #2c7a7b;
+  }
+  
+  .step.completed::before {
+    background-color: #38b2ac;
+  }
+  
+  .step.active {
+    background-color: #ebf8ff;
+    color: #2b6cb0;
+    font-weight: bold;
+  }
+  
+  .step.active::before {
+    background-color: #3182ce;
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+  }
+  
+  /* Review Panel */
+  .review-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+  }
+  
+  .metrics-summary {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .metric-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    min-width: 200px;
+    text-align: center;
+  }
+  
+  .metric-card h3 {
+    margin-top: 0;
+    color: #2c5282;
+    font-size: 16px;
+  }
+  
+  .metric-value {
+    font-size: 36px;
+    font-weight: bold;
+    color: #3182ce;
+    margin: 10px 0;
+  }
+  
+  .metric-desc {
+    font-size: 14px;
+    color: #718096;
+  }
+  
+  .schedule-table {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+  }
+  
+  .schedule-table h3 {
+    margin-top: 0;
+    color: #2c5282;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  th {
+    background-color: #f8fafc;
+    text-align: left;
+    padding: 12px 15px;
+    font-weight: bold;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  
+  td {
+    padding: 10px 15px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  tr:hover {
+    background-color: #f8fafc;
+  }
+  
+  .match-high {
+    color: #38a169;
+    font-weight: bold;
+  }
+  
+  .match-medium {
+    color: #dd6b20;
+    font-weight: bold;
+  }
+  
+  .match-low {
+    color: #e53e3e;
+    font-weight: bold;
+  }
+  
+  .examiner-workload {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .examiner-workload h3 {
+    margin-top: 0;
+    color: #2c5282;
+  }
+  
+  .workload-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .workload-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .examiner-name {
+    width: 200px;
+    font-weight: bold;
+  }
+  
+  .workload-bar-container {
+    flex: 1;
+    height: 24px;
+    background-color: #edf2f7;
+    border-radius: 4px;
+    position: relative;
+  }
+  
+  .workload-bar {
+    height: 100%;
+    background-color: #3182ce;
+    border-radius: 4px;
+  }
+  
+  .workload-count {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: #2d3748;
+    font-weight: bold;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .metrics-summary {
+      flex-direction: column;
+    }
+    
+    .checkbox-options {
+      grid-template-columns: 1fr;
+    }
+    
+    .workload-item {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .examiner-name {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+  }
