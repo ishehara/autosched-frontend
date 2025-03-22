@@ -77,6 +77,7 @@ const ReportsPage = () => {
       display: "flex", 
       flexDirection: "column",
       overflow: "hidden",
+      pt: 5,
       bgcolor: "#f5f7fa" // Light background to make table stand out
     }}>
       {/* Header */}

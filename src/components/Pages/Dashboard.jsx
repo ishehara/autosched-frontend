@@ -1,5 +1,7 @@
 // Dashboard.jsx
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+
 import { 
   Box, 
   Grid, 
@@ -75,6 +77,8 @@ function Dashboard() {
               </Typography>
             </Box>
             <Button 
+                    component={Link} to="/reports"
+
               variant="contained" 
               color="secondary" 
               startIcon={<ReportIcon />}
