@@ -1,751 +1,754 @@
-import React, { useState } from "react";
-import PropTypes from "prop-types";
-import { Formik, Form, Field } from "formik";
-import * as Yup from "yup";
-import axios from "axios";
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import * as yup from 'yup';
 import {
+  Container,
+  Typography,
   TextField,
   Button,
+  Box,
+  Grid,
   MenuItem,
   Select,
-  InputLabel,
   FormControl,
-  FormControlLabel,
-  Checkbox,
-  Typography,
-  Box,
-  Paper,
-  Grid,
-  Divider,
-  InputAdornment,
+  InputLabel,
+  FormHelperText,
   Chip,
+  Paper,
+  Snackbar,
+  Alert,
+  Divider,
+  IconButton,
+  Tooltip,
+  Card,
+  CardContent,
   Stepper,
   Step,
   StepLabel,
-  Collapse,
-  Alert,
-  CircularProgress,
-  Tooltip,
-  Zoom,
-  Fade,
-  Badge
-} from "@mui/material";
-import { 
-  MeetingRoom, 
-  LocationOn, 
-  Timer, 
-  AddCircleOutline,
-  Email,
-  Category,
-  CheckCircleOutline,
-  InfoOutlined,
-  EventSeat
-} from "@mui/icons-material";
+  LinearProgress,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  InputAdornment,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableRow
+} from '@mui/material';
+import { styled } from '@mui/material/styles';
+import AddLocationIcon from '@mui/icons-material/AddLocation';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import EmailIcon from '@mui/icons-material/Email';
+import EventSeatIcon from '@mui/icons-material/EventSeat';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CheckIcon from '@mui/icons-material/Check';
 
-// Validation Schema using Yup
-const VenueSchema = Yup.object().shape({
-  venueName: Yup.string()
-    .min(3, "Venue name must be at least 3 characters")
-    .max(50, "Venue name cannot exceed 50 characters")
-    .matches(/^[a-zA-Z0-9\s\-_]+$/, "Venue name can only contain letters, numbers, spaces, hyphens and underscores")
-    .required("Venue name is required"),
-  roomType: Yup.string().required("Room type is required"),
-  capacity: Yup.number()
-    .typeError("Capacity must be a number")
-    .positive("Capacity must be positive")
-    .integer("Capacity must be a whole number")
-    .min(1, "Capacity must be at least 1")
-    .max(1000, "Capacity cannot exceed 1000")
-    .required("Capacity is required")
-    .test(
-      'is-appropriate-for-room',
-      'Capacity seems unusual for this room type',
-      function(value) {
-        const roomType = this.parent.roomType;
-        if (!roomType || !value) return true;
-        
-        const recommendations = {
-          "Conference Hall": { min: 30, max: 300 },
-          "Lecture Hall": { min: 50, max: 400 },
-          "Meeting Room": { min: 5, max: 50 },
-          "Auditorium": { min: 100, max: 1000 },
-          "Seminar Room": { min: 20, max: 100 },
-          "Multimedia Room": { min: 10, max: 80 },
-          "Laboratory": { min: 10, max: 60 },
-          "Training Room": { min: 10, max: 80 }
-        };
-        
-        if (!recommendations[roomType]) return true;
-        
-        // Warning only, not error (return true to pass validation)
-        return true;
-      }
-    ),
-    location: Yup.string()
-    .min(5, "Location must be at least 5 characters")
-    .max(100, "Location cannot exceed 100 characters")
-    .required("Location is required"),
-  availability: Yup.string().required("Availability is required"),
-  timeSlot: Yup.string()
-  .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Time slot must be in 24-hour format (HH:MM)")
-  .required("Time slot is required")
-  .test(
-    'is-within-business-hours',
-    'Time should be within business hours (08:00-20:00)',
-    function(value) {
-      if (!value) return true;
-      const [hours, minutes] = value.split(':').map(Number);
-      const totalMinutes = hours * 60 + minutes;
-      return totalMinutes >= 8 * 60 && totalMinutes <= 20 * 60;
-    }
-  ),
-  organizerEmail: Yup.string()
-  .email("Invalid email format")
-  .required("Organizer email is required")
-  .test(
-    'is-valid-domain',
-    'Use an official email domain',
-    function(value) {
-      if (!value) return true;
-      // Check for common domains that might indicate an official email
-      const validDomains = ['.edu', '.gov', '.org', '.com', '.net'];
-      return validDomains.some(domain => value.includes(domain));
-    }
-  ),
+const facilitiesOptions = [
+  'Projector',
+  'Whiteboard',
+  'AC',
+  'Sound System',
+  'Mic',
+  'WiFi'
+];
+
+// Styled components
+const StyledCard = styled(Card)(({ theme }) => ({
+  borderRadius: 16,
+  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+  overflow: 'visible'
+}));
+
+const FormSection = styled(Box)(({ theme }) => ({
+  marginBottom: theme.spacing(4),
+}));
+
+const SectionTitle = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  marginBottom: theme.spacing(2),
+}));
+
+// Validation schema using Yup
+const validationSchema = yup.object({
+  venue_name: yup
+    .string()
+    .required('Venue name is required')
+    .min(3, 'Venue name should be at least 3 characters'),
+  room_type: yup
+    .string()
+    .required('Room type is required'),
+  location: yup
+    .string()
+    .required('Location is required')
+    .min(5, 'Please provide a more detailed location'),
+  capacity: yup
+    .number()
+    .required('Capacity is required')
+    .positive('Capacity must be a positive number')
+    .integer('Capacity must be a whole number')
+    .typeError('Capacity must be a number'),
+  organizer_email: yup
+    .string()
+    .email('Enter a valid email')
+    .required('Email is required'),
+  availability: yup
+    .string()
+    .required('Availability status is required'),
+  'Time Slot': yup
+    .string()
+    .required('Time slot is required')
 });
 
-const VenueForm = ({ fetchVenues }) => {
+const AddVenueForm = () => {
+  const [venueData, setVenueData] = useState({
+    venue_name: '',
+    room_type: '',
+    location: '',
+    capacity: '',
+    availability: '',
+    'Time Slot': '',
+    organizer_email: '',
+    available_facilities: []
+  });
+
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [isFormValid, setIsFormValid] = useState(false);
+
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+
   const [activeStep, setActiveStep] = useState(0);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showValidationAlert, setShowValidationAlert] = useState(false);
-  
-  const roomTypes = [
-    "Conference Hall",
-    "Lecture Hall",
-    "Meeting Room",
-    "Auditorium",
-    "Seminar Room",
-    "Multimedia Room",
-    "Laboratory",
-    "Training Room"
-  ];
+  const steps = ['Enter Venue Details', 'Review & Submit'];
 
-  // Updated to two steps instead of three
-  const steps = [
-    'Enter Venue Details',
-    'Review & Submit'
-  ];
-  
-  // Calculate form completion percentage based on filled fields
-  const calculateCompletion = (values) => {
-    const totalFields = Object.keys(VenueSchema.fields).length;
-    const filledFields = Object.keys(values).filter(key => 
-      values[key] !== "" && key in VenueSchema.fields
-    ).length;
-    
-    return Math.round((filledFields / totalFields) * 100);
+  // Validate form when data changes
+  useEffect(() => {
+    validateForm();
+  }, [venueData, touched]);
+
+  // Calculate form completion percentage
+  const calculateCompletion = () => {
+    const requiredFields = ['venue_name', 'location', 'capacity', 'organizer_email', 'room_type', 'availability', 'Time Slot'];
+    const filledFields = requiredFields.filter(field => {
+      return venueData[field] && venueData[field].toString().trim() !== '';
+    });
+    return (filledFields.length / requiredFields.length) * 100;
   };
 
-  // Get capacity recommendation based on room type
-  const getCapacityRecommendation = (roomType) => {
-    const recommendations = {
-      "Conference Hall": "50-200",
-      "Lecture Hall": "100-300",
-      "Meeting Room": "10-30",
-      "Auditorium": "200-500",
-      "Seminar Room": "30-80",
-      "Multimedia Room": "20-50",
-      "Laboratory": "20-40",
-      "Training Room": "15-50"
-    };
-    
-    return recommendations[roomType] || "No recommendation available";
-  };
-  
-  return (
-    <Paper elevation={6} sx={{ 
-      maxWidth: 800, 
-      margin: "auto", 
-      mt: 5, 
-      mb: 5,
-      borderRadius: 3,
-      overflow: "hidden",
-      transition: "all 0.3s ease-in-out",
-      '&:hover': {
-        boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+  const completionPercentage = calculateCompletion();
+
+  // Validate form fields
+  const validateForm = async () => {
+    try {
+      await validationSchema.validate(venueData, { abortEarly: false });
+      setErrors({});
+      setIsFormValid(true);
+    } catch (yupError) {
+      if (yupError.inner) {
+        const validationErrors = {};
+        yupError.inner.forEach(error => {
+          if (touched[error.path]) {
+            validationErrors[error.path] = error.message;
+          }
+        });
+        setErrors(validationErrors);
       }
-    }}>
-      <Box sx={{ 
-        p: 3, 
-        background: "linear-gradient(45deg, #3f51b5 30%, #5c6bc0 90%)",
-        color: "white",
-      }}>
-        <Typography variant="h4" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center' }}>
-          <MeetingRoom sx={{ mr: 1.5, fontSize: 35 }} />
-          Add New Venue
-        </Typography>
-        <Typography variant="subtitle1">
-          Enter the details of your venue below
-        </Typography>
-      </Box>
+      setIsFormValid(Object.keys(errors).length === 0 && completionPercentage === 100);
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setVenueData((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+  };
+
+  const handleBlur = (e) => {
+    const { name } = e.target;
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+  };
+
+  const handleFacilityCheckboxChange = (facility) => {
+    setVenueData((prev) => {
+      const currentFacilities = [...prev.available_facilities];
+      const facilityIndex = currentFacilities.indexOf(facility);
       
-      <Stepper activeStep={activeStep} alternativeLabel sx={{ pt: 4, px: 4 }}>
-        {steps.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+      if (facilityIndex === -1) {
+        currentFacilities.push(facility);
+      } else {
+        currentFacilities.splice(facilityIndex, 1);
+      }
       
-      <Collapse in={showSuccess}>
-        <Alert 
-          severity="success"
-          icon={<CheckCircleOutline fontSize="inherit" />}
-          sx={{ m: 2 }}
-          onClose={() => setShowSuccess(false)}
-        >
-          Venue added successfully! You can add another venue or view the updated list.
-        </Alert>
-      </Collapse>
+      return {
+        ...prev,
+        available_facilities: currentFacilities
+      };
+    });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({...snackbar, open: false});
+  };
+
+  const handleContinueToReview = async (e) => {
+    e.preventDefault();
+    
+    // Touch all fields
+    const allTouched = {};
+    Object.keys(venueData).forEach(key => {
+      allTouched[key] = true;
+    });
+    setTouched(allTouched);
+    
+    // Validate all fields
+    try {
+      await validationSchema.validate(venueData, { abortEarly: false });
+      setErrors({});
+      // Go to review step
+      setActiveStep(1);
+    } catch (yupError) {
+      if (yupError.inner) {
+        const validationErrors = {};
+        yupError.inner.forEach(error => {
+          validationErrors[error.path] = error.message;
+        });
+        setErrors(validationErrors);
+        setSnackbar({
+          open: true,
+          message: 'Please fix the errors before continuing',
+          severity: 'error'
+        });
+      }
+    }
+  };
+
+  const handleBackToForm = () => {
+    setActiveStep(0);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      await axios.post('http://localhost:5000/api/venues/', venueData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
-      <Collapse in={showValidationAlert}>
-        <Alert 
-          severity="error"
-          sx={{ m: 2 }}
-          onClose={() => setShowValidationAlert(false)}
-        >
-          Please fix the validation errors before proceeding.
-        </Alert>
-      </Collapse>
+      setSnackbar({
+        open: true,
+        message: 'Venue added successfully!',
+        severity: 'success'
+      });
       
-      <Box sx={{ p: 4 }}>
-        <Formik
-          initialValues={{
-            venueName: "",
-            roomType: "",
-            capacity: "",
-            location: "",
-            availability: "",
-            timeSlot: "",
-            organizerEmail: "",
-            facilities: [],
+      setVenueData({
+        venue_name: '',
+        room_type: '',
+        location: '',
+        capacity: '',
+        availability: '',
+        'Time Slot': '',
+        organizer_email: '',
+        available_facilities: []
+      });
+      setActiveStep(0);
+      setTouched({});
+    } catch (err) {
+      console.error('Error adding venue:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to add venue. Please try again.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // Review component
+  const ReviewContent = () => (
+    <Box>
+      <Typography variant="h6" color="primary" sx={{ mb: 3 }}>Review Venue Details</Typography>
+      
+      <TableContainer component={Paper} variant="outlined" sx={{ mb: 4 }}>
+        <Table>
+          <TableBody>
+            <TableRow>
+              <TableCell component="th" sx={{ fontWeight: 'bold', width: '30%', backgroundColor: '#f5f5f5' }}>
+                Venue Name
+              </TableCell>
+              <TableCell>{venueData.venue_name}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell component="th" sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+                Room Type
+              </TableCell>
+              <TableCell>{venueData.room_type}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell component="th" sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+                Location
+              </TableCell>
+              <TableCell>{venueData.location}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell component="th" sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+                Capacity
+              </TableCell>
+              <TableCell>{venueData.capacity}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell component="th" sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+                Organizer Email
+              </TableCell>
+              <TableCell>{venueData.organizer_email}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell component="th" sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+                Availability
+              </TableCell>
+              <TableCell>
+                {venueData.availability === 'Available' ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CheckCircleOutlineIcon sx={{ color: 'success.main', mr: 1 }} />
+                    Available
+                  </Box>
+                ) : venueData.availability}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell component="th" sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+                Time Slot
+              </TableCell>
+              <TableCell>{venueData['Time Slot']}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell component="th" sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+                Available Facilities
+              </TableCell>
+              <TableCell>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {venueData.available_facilities.length > 0 ? 
+                    venueData.available_facilities.map(facility => (
+                      <Chip 
+                        key={facility} 
+                        label={facility} 
+                        color="primary" 
+                        size="small" 
+                        variant="outlined"
+                      />
+                    )) : 
+                    <Typography variant="body2" color="text.secondary">No facilities selected</Typography>
+                  }
+                </Box>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+        <Button 
+          onClick={handleBackToForm}
+          startIcon={<ArrowBackIcon />}
+          sx={{ 
+            borderRadius: 2,
+            fontWeight: 500
           }}
-          validationSchema={VenueSchema}
-          onSubmit={async (values, { resetForm }) => {
-            setIsSubmitting(true);
-            try {
-              await axios.post("http://localhost:5000/api/venues", values);
-              setShowSuccess(true);
-              resetForm();
-              fetchVenues(); // Refresh venue list
-              setActiveStep(0);
-              
-              // Auto-hide success message after 5 seconds
-              setTimeout(() => {
-                setShowSuccess(false);
-              }, 5000);
-            } catch (error) {
-              console.error("Error submitting data:", error);
-              // alert("Failed to add venue.");
-            } finally {
-              setIsSubmitting(false);
+        >
+          Back to Edit
+        </Button>
+        <Button 
+          onClick={handleSubmit}
+          variant="contained" 
+          color="primary"
+          endIcon={<CheckIcon />}
+          sx={{ 
+            px: 4, 
+            py: 1, 
+            borderRadius: 2,
+            fontWeight: 600,
+            boxShadow: '0 4px 12px rgba(33, 150, 243, 0.3)',
+            '&:hover': {
+              boxShadow: '0 6px 16px rgba(33, 150, 243, 0.4)',
+              transform: 'translateY(-2px)',
+              transition: 'all 0.3s'
             }
           }}
         >
-          {({ values, errors, touched, handleChange, isValid, dirty, validateForm, setTouched }) => {
-            const completion = calculateCompletion(values);
-            
-            // Function to handle validation check before proceeding to next step
-            const handleContinue = async () => {
-              const validationErrors = await validateForm();
-              
-              // If there are validation errors
-              if (Object.keys(validationErrors).length > 0) {
-                // Mark all fields as touched to show errors
-                const touchedFields = {};
-                Object.keys(VenueSchema.fields).forEach(field => {
-                  touchedFields[field] = true;
-                });
-                setTouched(touchedFields);
-                
-                // Show error alert
-                setShowValidationAlert(true);
-                
-                // Auto-hide error message after 5 seconds
-                setTimeout(() => {
-                  setShowValidationAlert(false);
-                }, 5000);
-              } else {
-                // If no errors, proceed to next step
-                setActiveStep(1);
-              }
-            };
-            
-            return (
-              <Form>
-                {/* Progress indicator */}
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, mt: 2 }}>
-                  <CircularProgress 
-                    variant="determinate" 
-                    value={completion} 
-                    color={completion === 100 ? "success" : "primary"}
-                    size={60}
-                    thickness={5}
-                    sx={{ mr: 2 }}
-                  />
-                  <Box>
-                    <Typography variant="h6" color="primary">
-                      Form Completion: {completion}%
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {completion < 100 ? "Please fill in all required fields" : "Ready to submit!"}
-                    </Typography>
-                  </Box>
+          Submit Venue
+        </Button>
+      </Box>
+    </Box>
+  );
+
+  return (
+    <Container maxWidth="md" sx={{ mt: 4, mb: 8 }}>
+      <StyledCard>
+        <Box 
+          sx={{ 
+            p: 2, 
+            backgroundColor: '#3f51b5', 
+            color: 'white',
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            display: 'flex',
+            alignItems: 'center'
+          }}
+        >
+          <MeetingRoomIcon sx={{ fontSize: 28, mr: 2 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="500">
+              Add New Venue
+            </Typography>
+            <Typography variant="body2">
+              Enter the details of your venue below
+            </Typography>
+          </Box>
+        </Box>
+
+        <CardContent sx={{ p: 4 }}>
+          {/* Steps */}
+          <Box sx={{ mb: 4 }}>
+            <Stepper activeStep={activeStep} alternativeLabel>
+              {steps.map((label, index) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+          </Box>
+
+          {activeStep === 0 && (
+            <>
+              {/* Form completion */}
+              <Box sx={{ mb: 4 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="primary">
+                    Form Completion: {Math.round(completionPercentage)}%
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Please fill in all required fields
+                  </Typography>
                 </Box>
-                
-                {/* Combined Input Section - Step 1 */}
-                <Fade in={activeStep === 0} timeout={500}>
-                  <Box sx={{ display: activeStep === 0 ? 'block' : 'none' }}>
-                    <Grid container spacing={3}>
-                      {/* Basic Information */}
-                      <Grid item xs={12}>
-                        <Typography variant="h6" color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
-                          Basic Information
-                          <Tooltip title="Provide essential details about the venue">
-                            <InfoOutlined fontSize="small" sx={{ ml: 1 }} />
-                          </Tooltip>
-                        </Typography>
-                        <Divider sx={{ mb: 2 }} />
-                      </Grid>
-                      
-                      {/* Venue Name */}
-                      <Grid item xs={12} md={6}>
-                        <Zoom in={true} style={{ transitionDelay: '100ms' }}>
-                          <TextField
-                            name="venueName"
-                            label="Venue Name"
-                            fullWidth
-                            variant="outlined"
-                            value={values.venueName}
-                            onChange={handleChange}
-                            error={touched.venueName && !!errors.venueName}
-                            helperText={touched.venueName && errors.venueName}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <MeetingRoom color="primary" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          />
-                        </Zoom>
-                      </Grid>
-
-                      {/* Room Type */}
-                      <Grid item xs={12} md={6}>
-                        <Zoom in={true} style={{ transitionDelay: '200ms' }}>
-                          <FormControl fullWidth variant="outlined" error={touched.roomType && !!errors.roomType}>
-                            <InputLabel>Room Type</InputLabel>
-                            <Select
-                              name="roomType"
-                              value={values.roomType}
-                              onChange={handleChange}
-                              label="Room Type"
-                              startAdornment={
-                                <InputAdornment position="start">
-                                  <Category color="primary" />
-                                </InputAdornment>
-                              }
-                            >
-                              {roomTypes.map((type) => (
-                                <MenuItem key={type} value={type}>
-                                  {type}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                            {touched.roomType && errors.roomType ? (
-                              <Typography variant="caption" color="error">
-                                {errors.roomType}
-                              </Typography>
-                            ) : values.roomType && (
-                              <Typography variant="caption" color="text.secondary">
-                                Recommended capacity: {getCapacityRecommendation(values.roomType)}
-                              </Typography>
-                            )}
-                          </FormControl>
-                        </Zoom>
-                      </Grid>
-
-                      {/* Organizer Email */}
-                      <Grid item xs={12} md={6}>
-                        <Zoom in={true} style={{ transitionDelay: '300ms' }}>
-                          <TextField
-                            name="organizerEmail"
-                            label="Organizer Email"
-                            type="email"
-                            fullWidth
-                            variant="outlined"
-                            value={values.organizerEmail}
-                            onChange={handleChange}
-                            error={touched.organizerEmail && !!errors.organizerEmail}
-                            helperText={touched.organizerEmail && errors.organizerEmail}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <Email color="primary" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          />
-                        </Zoom>
-                      </Grid>
-
-                      {/* Capacity */}
-                      <Grid item xs={12} md={6}>
-                        <Zoom in={true} style={{ transitionDelay: '400ms' }}>
-                          <TextField
-                            name="capacity"
-                            type="number"
-                            label="Capacity"
-                            fullWidth
-                            variant="outlined"
-                            value={values.capacity}
-                            onChange={handleChange}
-                            error={touched.capacity && !!errors.capacity}
-                            helperText={
-                              (touched.capacity && errors.capacity) || 
-                              (values.capacity && `${values.capacity} people can be accommodated`)
-                            }
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <Badge badgeContent={values.capacity || 0} color="primary" max={999}>
-                                    <EventSeat color="primary" />
-                                  </Badge>
-                                </InputAdornment>
-                              ),
-                            }}
-                          />
-                        </Zoom>
-                      </Grid>
-
-                      {/* Location */}
-                      <Grid item xs={12}>
-                        <Zoom in={true} style={{ transitionDelay: '500ms' }}>
-                          <TextField
-                            name="location"
-                            label="Location"
-                            fullWidth
-                            variant="outlined"
-                            value={values.location}
-                            onChange={handleChange}
-                            error={touched.location && !!errors.location}
-                            helperText={touched.location && errors.location}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <LocationOn color="primary" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          />
-                        </Zoom>
-                      </Grid>
-                      
-                      {/* Availability & Features Section */}
-                      <Grid item xs={12}>
-                        <Typography variant="h6" color="primary" sx={{ mb: 1, mt: 3, display: 'flex', alignItems: 'center' }}>
-                          Availability & Features
-                          <Tooltip title="Set when the venue is available and what facilities it offers">
-                            <InfoOutlined fontSize="small" sx={{ ml: 1 }} />
-                          </Tooltip>
-                        </Typography>
-                        <Divider sx={{ mb: 2 }} />
-                      </Grid>
-
-                      {/* Availability */}
-                      <Grid item xs={12} md={6}>
-                        <Zoom in={true} style={{ transitionDelay: '600ms' }}>
-                          <FormControl fullWidth variant="outlined" error={touched.availability && !!errors.availability}>
-                            <InputLabel>Availability</InputLabel>
-                            <Select
-                              name="availability"
-                              value={values.availability}
-                              onChange={handleChange}
-                              label="Availability"
-                            >
-                              <MenuItem value="Available">
-                                <Chip 
-                                  label="Available" 
-                                  size="small" 
-                                  sx={{ bgcolor: 'success.light', color: 'white' }}
-                                />
-                              </MenuItem>
-                              <MenuItem value="Reserved">
-                                <Chip 
-                                  label="Reserved" 
-                                  size="small" 
-                                  sx={{ bgcolor: 'warning.light', color: 'white' }}
-                                />
-                              </MenuItem>
-                              <MenuItem value="Under Maintenance">
-                                <Chip 
-                                  label="Under Maintenance" 
-                                  size="small" 
-                                  sx={{ bgcolor: 'error.light', color: 'white' }}
-                                />
-                              </MenuItem>
-                            </Select>
-                            {touched.availability && errors.availability && (
-                              <Typography variant="caption" color="error">
-                                {errors.availability}
-                              </Typography>
-                            )}
-                          </FormControl>
-                        </Zoom>
-                      </Grid>
-
-                      {/* Time Slot */}
-                      <Grid item xs={12} md={6}>
-                        <Zoom in={true} style={{ transitionDelay: '700ms' }}>
-                          <TextField
-                            name="timeSlot"
-                            type="time"
-                            label="Time Slot"
-                            fullWidth
-                            variant="outlined"
-                            value={values.timeSlot}
-                            onChange={handleChange}
-                            error={touched.timeSlot && !!errors.timeSlot}
-                            helperText={
-                              (touched.timeSlot && errors.timeSlot) ||
-                              (values.timeSlot && `Starts at ${values.timeSlot}`)
-                            }
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <Timer color="primary" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          />
-                        </Zoom>
-                      </Grid>
-
-                      {/* Facilities */}
-                      <Grid item xs={12}>
-                        <Zoom in={true} style={{ transitionDelay: '800ms' }}>
-                          <Box>
-                            <Typography variant="subtitle1" color="textSecondary" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
-                              Available Facilities
-                              <Badge 
-                                badgeContent={values.facilities.length} 
-                                color="primary"
-                                sx={{ ml: 1 }}
-                              >
-                                <InfoOutlined fontSize="small" />
-                              </Badge>
-                            </Typography>
-                            <Box sx={{ 
-                              display: 'flex', 
-                              flexWrap: 'wrap', 
-                              gap: 1, 
-                              p: 2, 
-                              borderRadius: 1, 
-                              bgcolor: 'background.paper', 
-                              border: '1px solid #e0e0e0',
-                              transition: 'all 0.2s ease',
-                              '&:hover': {
-                                borderColor: '#3f51b5',
-                                boxShadow: '0 0 5px rgba(63, 81, 181, 0.3)',
-                              }
-                            }}>
-                              {["Projector", "Whiteboard", "AC", "Sound System", "Mic"].map((item) => (
-                                <Zoom in={true} style={{ transitionDelay: `${900 + (100 * ["Projector", "Whiteboard", "AC", "Sound System", "Mic"].indexOf(item))}ms` }} key={item}>
-                                  <FormControlLabel
-                                    control={
-                                      <Field
-                                        type="checkbox"
-                                        name="facilities"
-                                        value={item}
-                                        as={Checkbox}
-                                        color="primary"
-                                      />
-                                    }
-                                    label={item}
-                                    sx={{ 
-                                      border: '1px solid #e0e0e0',
-                                      borderRadius: 1,
-                                      m: 0.5,
-                                      px: 1,
-                                      transition: 'all 0.2s ease',
-                                      '&:hover': {
-                                        borderColor: '#3f51b5',
-                                        backgroundColor: 'rgba(63, 81, 181, 0.05)',
-                                      },
-                                      ...(values.facilities.includes(item) && {
-                                        borderColor: '#3f51b5',
-                                        backgroundColor: 'rgba(63, 81, 181, 0.1)',
-                                      }),
-                                    }}
-                                  />
-                                </Zoom>
-                              ))}
-                            </Box>
-                          </Box>
-                        </Zoom>
-                      </Grid>
-                      
-                      {/* Continue Button */}
-                      <Grid item xs={12}>
-                        <Button 
-                          variant="contained" 
-                          color="primary" 
-                          fullWidth 
-                          size="large"
-                          sx={{ 
-                            mt: 3, 
-                            py: 1.5,
-                            borderRadius: 2,
-                          }}
-                          onClick={handleContinue}
-                        >
-                          Continue to Review
-                        </Button>
-                      </Grid>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={completionPercentage} 
+                  sx={{ height: 6, borderRadius: 3 }}
+                />
+              </Box>
+              
+              <Box component="form" onSubmit={handleContinueToReview}>
+                {/* Basic Information Section */}
+                <FormSection>
+                  <SectionTitle>
+                    <Typography variant="h6" color="primary" sx={{ fontWeight: 500 }}>
+                      Basic Information
+                    </Typography>
+                    <Tooltip title="All fields marked with * are required">
+                      <IconButton size="small">
+                        <InfoOutlinedIcon fontSize="small" color="primary" />
+                      </IconButton>
+                    </Tooltip>
+                  </SectionTitle>
+                  <Divider sx={{ mb: 3 }} />
+                  
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Venue Name"
+                        name="venue_name"
+                        fullWidth
+                        required
+                        value={venueData.venue_name}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={Boolean(touched.venue_name && errors.venue_name)}
+                        helperText={touched.venue_name && errors.venue_name}
+                        variant="outlined"
+                        placeholder="Enter venue name"
+                        InputProps={{ 
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <MeetingRoomIcon color="primary" fontSize="small" />
+                            </InputAdornment>
+                          ),
+                          sx: { borderRadius: 1.5 } 
+                        }}
+                      />
                     </Grid>
-                  </Box>
-                </Fade>
-                
-                {/* Review & Submit Section - Step 2 */}
-                <Fade in={activeStep === 1} timeout={500}>
-                  <Box sx={{ display: activeStep === 1 ? 'block' : 'none' }}>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12}>
-                        <Typography variant="h6" color="primary" sx={{ mb: 1 }}>
-                          Review Your Information
-                        </Typography>
-                        <Divider sx={{ mb: 2 }} />
-                      </Grid>
-                      
-                      <Grid item xs={12}>
-                        <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
-                          <Grid container spacing={2}>
-                            <Grid item xs={12} md={6}>
-                              <Typography variant="subtitle2" color="textSecondary">Venue Name</Typography>
-                              <Typography variant="body1" sx={{ mb: 2 }}>{values.venueName}</Typography>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                              <Typography variant="subtitle2" color="textSecondary">Room Type</Typography>
-                              <Typography variant="body1" sx={{ mb: 2 }}>{values.roomType}</Typography>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                              <Typography variant="subtitle2" color="textSecondary">Capacity</Typography>
-                              <Typography variant="body1" sx={{ mb: 2 }}>{values.capacity} people</Typography>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                              <Typography variant="subtitle2" color="textSecondary">Location</Typography>
-                              <Typography variant="body1" sx={{ mb: 2 }}>{values.location}</Typography>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                              <Typography variant="subtitle2" color="textSecondary">Organizer Email</Typography>
-                              <Typography variant="body1" sx={{ mb: 2 }}>{values.organizerEmail}</Typography>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                              <Typography variant="subtitle2" color="textSecondary">Availability</Typography>
-                              <Chip 
-                                label={values.availability} 
-                                size="small" 
-                                sx={{ 
-                                  bgcolor: 
-                                    values.availability === 'Available' ? 'success.light' : 
-                                    values.availability === 'Reserved' ? 'warning.light' : 
-                                    'error.light', 
-                                  color: 'white',
-                                  mb: 2
-                                }}
+                    <Grid item xs={12} sm={6}>
+                      <FormControl 
+                        fullWidth 
+                        variant="outlined"
+                        error={Boolean(touched.room_type && errors.room_type)}
+                      >
+                        <InputLabel>Room Type</InputLabel>
+                        <Select
+                          name="room_type"
+                          value={venueData.room_type}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          label="Room Type"
+                          sx={{ borderRadius: 1.5 }}
+                          startAdornment={
+                            <InputAdornment position="start" sx={{ ml: 2 }}>
+                              <MeetingRoomIcon color="primary" fontSize="small" />
+                            </InputAdornment>
+                          }
+                        >
+                          <MenuItem value="Classroom">Classroom</MenuItem>
+                          <MenuItem value="Meeting Room">Meeting Room</MenuItem>
+                          <MenuItem value="Auditorium">Auditorium</MenuItem>
+                          <MenuItem value="Conference Hall">Conference Hall</MenuItem>
+                        </Select>
+                        {touched.room_type && errors.room_type && (
+                          <FormHelperText error>{errors.room_type}</FormHelperText>
+                        )}
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Organizer Email"
+                        name="organizer_email"
+                        fullWidth
+                        required
+                        value={venueData.organizer_email}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={Boolean(touched.organizer_email && errors.organizer_email)}
+                        helperText={touched.organizer_email && errors.organizer_email}
+                        type="email"
+                        variant="outlined"
+                        placeholder="example@email.com"
+                        InputProps={{ 
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <EmailIcon color="primary" fontSize="small" />
+                            </InputAdornment>
+                          ),
+                          sx: { borderRadius: 1.5 } 
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Capacity"
+                        name="capacity"
+                        type="number"
+                        fullWidth
+                        required
+                        value={venueData.capacity}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={Boolean(touched.capacity && errors.capacity)}
+                        helperText={touched.capacity && errors.capacity}
+                        variant="outlined"
+                        placeholder="Maximum number of people"
+                        InputProps={{ 
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <EventSeatIcon color="primary" fontSize="small" />
+                            </InputAdornment>
+                          ),
+                          sx: { borderRadius: 1.5 } 
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Location"
+                        name="location"
+                        fullWidth
+                        required
+                        value={venueData.location}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={Boolean(touched.location && errors.location)}
+                        helperText={touched.location && errors.location}
+                        variant="outlined"
+                        placeholder="Building and floor details"
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <AddLocationIcon color="primary" fontSize="small" />
+                            </InputAdornment>
+                          ),
+                          sx: { borderRadius: 1.5 }
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </FormSection>
+
+                {/* Availability & Features */}
+                <FormSection>
+                  <SectionTitle>
+                    <Typography variant="h6" color="primary" sx={{ fontWeight: 500 }}>
+                      Availability & Features
+                    </Typography>
+                    <Tooltip title="Information about when and what facilities are available">
+                      <IconButton size="small">
+                        <InfoOutlinedIcon fontSize="small" color="primary" />
+                      </IconButton>
+                    </Tooltip>
+                  </SectionTitle>
+                  <Divider sx={{ mb: 3 }} />
+                  
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl 
+                        fullWidth 
+                        variant="outlined"
+                        error={Boolean(touched.availability && errors.availability)}
+                      >
+                        <InputLabel>Availability</InputLabel>
+                        <Select
+                          name="availability"
+                          value={venueData.availability}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          label="Availability"
+                          sx={{ borderRadius: 1.5 }}
+                        >
+                          <MenuItem value="Available">
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <CheckCircleOutlineIcon sx={{ color: 'success.main', mr: 1 }} />
+                              Available
+                            </Box>
+                          </MenuItem>
+                          <MenuItem value="Not Available">Not Available</MenuItem>
+                        </Select>
+                        {touched.availability && errors.availability && (
+                          <FormHelperText error>{errors.availability}</FormHelperText>
+                        )}
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Time Slot"
+                        name="Time Slot"
+                        type="time"
+                        fullWidth
+                        required
+                        value={venueData['Time Slot']}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={Boolean(touched['Time Slot'] && errors['Time Slot'])}
+                        helperText={touched['Time Slot'] && errors['Time Slot']}
+                        InputLabelProps={{
+                          shrink: true
+                        }}
+                        InputProps={{ 
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <AccessTimeIcon color="primary" fontSize="small" />
+                            </InputAdornment>
+                          ),
+                          sx: { borderRadius: 1.5 } 
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+                        Available Facilities
+                        <Tooltip title="Select all facilities available at this venue">
+                          <IconButton size="small">
+                            <InfoOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Typography>
+                      <Paper sx={{ p: 2, backgroundColor: '#f9f9f9', borderRadius: 2 }}>
+                        <Grid container spacing={1}>
+                          {facilitiesOptions.map((facility) => (
+                            <Grid item xs={6} sm={4} key={facility}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={venueData.available_facilities.includes(facility)}
+                                    onChange={() => handleFacilityCheckboxChange(facility)}
+                                    color="primary"
+                                  />
+                                }
+                                label={facility}
                               />
                             </Grid>
-                            <Grid item xs={12} md={6}>
-                              <Typography variant="subtitle2" color="textSecondary">Time Slot</Typography>
-                              <Typography variant="body1" sx={{ mb: 2 }}>{values.timeSlot}</Typography>
-                            </Grid>
-                            <Grid item xs={12}>
-                              <Typography variant="subtitle2" color="textSecondary">Facilities</Typography>
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                                {values.facilities.length > 0 ? (
-                                  values.facilities.map(facility => (
-                                    <Chip 
-                                      key={facility} 
-                                      label={facility} 
-                                      size="small" 
-                                      color="primary" 
-                                      variant="outlined" 
-                                    />
-                                  ))
-                                ) : (
-                                  <Typography variant="body2" color="text.secondary">No facilities selected</Typography>
-                                )}
-                              </Box>
-                            </Grid>
-                          </Grid>
-                        </Paper>
-                      </Grid>
-                      
-                      {/* Navigation Buttons */}
-                      <Grid item xs={6}>
-                        <Button 
-                          variant="outlined" 
-                          color="primary" 
-                          fullWidth 
-                          size="large"
-                          sx={{ 
-                            mt: 3, 
-                            py: 1.5,
-                            borderRadius: 2,
-                          }}
-                          onClick={() => setActiveStep(0)}
-                        >
-                          Back to Details
-                        </Button>
-                      </Grid>
-                      
-                      <Grid item xs={6}>
-                        <Button 
-                          type="submit" 
-                          variant="contained" 
-                          color="primary" 
-                          fullWidth 
-                          size="large"
-                          sx={{ 
-                            mt: 3, 
-                            py: 1.5,
-                            borderRadius: 2,
-                            background: "linear-gradient(45deg, #3f51b5 30%, #5c6bc0 90%)",
-                            boxShadow: '0 3px 5px 2px rgba(63, 81, 181, .3)',
-                          }}
-                          startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <AddCircleOutline />}
-                          disabled={isSubmitting || !isValid}
-                        >
-                          {isSubmitting ? "Submitting..." : "Add Venue"}
-                        </Button>
-                      </Grid>
+                          ))}
+                        </Grid>
+                      </Paper>
                     </Grid>
-                  </Box>
-                </Fade>
-              </Form>
-            );
-          }}
-        </Formik>
-      </Box>
-    </Paper>
+                  </Grid>
+                </FormSection>
+
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <Button 
+                    type="submit" 
+                    variant="contained" 
+                    size="large"
+                    disabled={!isFormValid && completionPercentage < 100}
+                    sx={{ 
+                      px: 6, 
+                      py: 1.2, 
+                      borderRadius: 2,
+                      backgroundColor: '#2196f3',
+                      fontWeight: 600,
+                      boxShadow: '0 4px 12px rgba(33, 150, 243, 0.3)',
+                      '&:hover': {
+                        backgroundColor: '#1976d2',
+                        boxShadow: '0 6px 16px rgba(33, 150, 243, 0.4)',
+                        transform: 'translateY(-2px)',
+                        transition: 'all 0.3s'
+                      },
+                      '&:disabled': {
+                        backgroundColor: '#e0e0e0',
+                        color: '#a0a0a0'
+                      }
+                    }}
+                  >
+                    CONTINUE TO REVIEW
+                  </Button>
+                </Box>
+              </Box>
+            </>
+          )}
+
+          {activeStep === 1 && <ReviewContent />}
+        </CardContent>
+      </StyledCard>
+      
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity} 
+          variant="filled"
+          sx={{ width: '100%', borderRadius: 2, boxShadow: 3 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Container>
   );
 };
 
-// Define PropTypes
-VenueForm.propTypes = {
-  fetchVenues: PropTypes.func.isRequired,
-};
-
-export default VenueForm;
+export default AddVenueForm;
