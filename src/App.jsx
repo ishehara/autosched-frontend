@@ -37,10 +37,10 @@ function App() {
         <Route path="/presentations" element={<PresentationView />} />
 
         {/* Route to add a new presentation */}
-        <Route path="/presentations/new" element={<PresentationForm />} />
+        <Route path="/presentationsForm" element={<PresentationForm />} />
 
         {/* Route to edit an existing presentation */}
-        <Route path="/presentations/edit/:id" element={<EditPresentation />} />
+        <Route path="/presentationsedit/:id" element={<EditPresentation />} />
 
         <Route path="/AIScheduler" element={<AIScheduler />} /> {/* ✅ Check the path here */}
   
