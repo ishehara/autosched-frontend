@@ -8,6 +8,7 @@ import Home from "./components/Pages/Home";
 import VenueForm from './components/VenueManagement/VenueForm';
 import Dashboard from "./components/Pages/Dashboard";
 import VenueList from "./components/VenueManagement/VenueList";
+import UpdateVenueForm from "./components/VenueManagement/UpdateVenueForm";
 import ExaminerForm from "./components/ExaminerManagement/ExaminerForm";
 import ExaminerList from "./components/ExaminerManagement/ExaminerList";
 import ReportsPage from "./components/Reports/ReportsPage";
@@ -27,6 +28,7 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/addVenue" element={<VenueForm />} /> {/* ✅ Check the path here */}
         <Route path="/VenueList" element={<VenueList />} /> {/* ✅ Check the path here */}
+        <Route path="/UpdateVenueForm/:venueId" element={<UpdateVenueForm />} /> {/* ✅ Check the path here */}
 
         {/* Route to view login form at the root */}
         <Route path="/login" element={<LoginForm />} />

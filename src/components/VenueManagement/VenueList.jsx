@@ -1,851 +1,402 @@
-import React, { useState, useEffect } from "react";
-import PropTypes from "prop-types";
-import axios from "axios";
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import {
-  Typography,
   Box,
-  Paper,
+  CircularProgress,
+  Container,
+  Typography,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
+  TableCell,
+  TableBody,
   Chip,
-  IconButton,
-  TextField,
-  InputAdornment,
-  Tooltip,
-  CircularProgress,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
+  Paper,
+  TableContainer,
+  Grid,
   Card,
   CardContent,
-  Grid,
   Divider,
-  Alert,
-  Collapse,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel
-} from "@mui/material";
-import {
-  MeetingRoom,
-  Search,
-  Refresh,
-  Delete,
-  Edit,
-  InfoOutlined,
-  EventSeat,
-  LocationOn,
-  Timer,
-  Email,
-  Category,
-  FilterList,
-  VisibilityOutlined,
-  BarChart,
-  Assessment,
-  Add
-} from "@mui/icons-material";
+  Tooltip,
+  useTheme,
+  TextField,
+  InputAdornment,
+  Button,
+  IconButton
+} from '@mui/material';
+import InfoIcon from '@mui/icons-material/Info';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import GroupIcon from '@mui/icons-material/Group';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
+import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
-const VenueList = ({ onEdit, refreshTrigger, onAddVenue }) => {
-  // State for venue data and UI
+const VenueList = () => {
   const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [venueToDelete, setVenueToDelete] = useState(null);
-  const [deleteSuccess, setDeleteSuccess] = useState(false);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [selectedVenue, setSelectedVenue] = useState(null);
-  const [filterAvailability, setFilterAvailability] = useState("All");
-  const [showStats, setShowStats] = useState(true);
-  const [venueStats, setVenueStats] = useState({
-    roomTypes: {},
-    availabilityStatus: {},
+  const [stats, setStats] = useState({
+    totalVenues: 0,
+    availableVenues: 0,
     totalCapacity: 0,
-    totalVenues: 0
+    locations: {}
   });
+  // State variables for search functionality
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredVenues, setFilteredVenues] = useState([]);
+  
+  const navigate = useNavigate();
+  const theme = useTheme();
 
-  // Dummy data for venues
-  const dummyVenues = [
-    {
-      id: 1,
-      venueName: "G403",
-      roomType: "Conference Hall",
-      capacity: 180,
-      location: "New Building, Floor 4",
-      availability: "Available",
-      timeSlot: "09:00",
-      organizerEmail: "samarasinghe@company.com",
-      facilities: ["Projector", "Sound System", "AC", "Mic"],
-    },
-    {
-      id: 2,
-      venueName: "A405",
-      roomType: "Meeting Room",
-      capacity: 25,
-      location: "Main Building, Floor 4",
-      availability: "Reserved",
-      timeSlot: "13:30",
-      organizerEmail: "Silva@company.com",
-      facilities: ["Whiteboard", "AC", "Projector"],
-    },
-    {
-      id: 3,
-      venueName: "A603",
-      roomType: "PC Lab",
-      capacity: 40,
-      location: "Main Building, Floor 6",
-      availability: "Available",
-      timeSlot: "10:00",
-      organizerEmail: "silva@company.com",
-      facilities: ["Projector", "Whiteboard", "Sound System"],
-    },
-    {
-      id: 4,
-      venueName: "Main Auditorium",
-      roomType: "Auditorium",
-      capacity: 350,
-      location: "Auditorium",
-      availability: "Under Maintenance",
-      timeSlot: "08:00",
-      organizerEmail: "silva@company.com",
-      facilities: ["Sound System", "AC", "Mic"],
-    },
-    {
-      id: 5,
-      venueName: "F1305",
-      roomType: "Laboratory",
-      capacity: 30,
-      location: "New Building, Floor 13",
-      availability: "Available",
-      timeSlot: "14:00",
-      organizerEmail: "samarasinghe@company.com",
-      facilities: ["Whiteboard", "AC"],
-    },
-    {
-      id: 6,
-      venueName: "F505",
-      roomType: "Multimedia Room",
-      capacity: 45,
-      location: "New Building, Floor 5",
-      availability: "Reserved",
-      timeSlot: "11:30",
-      organizerEmail: "samarasinghe@company.com",
-      facilities: ["Projector", "Sound System", "AC", "Mic"],
-    },
-    {
-      id: 7,
-      venueName: "B512",
-      roomType: "Seminar Room",
-      capacity: 50,
-      location: "Main Building, Floor 5",
-      availability: "Available",
-      timeSlot: "15:00",
-      organizerEmail: "silva@company.com",
-      facilities: ["Projector", "Whiteboard", "AC"],
-    },
-  ];
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/venues')
+      .then((res) => {
+        const venueData = res.data;
+        setVenues(venueData);
+        setFilteredVenues(venueData); // Initialize filtered venues with all venues
+        calculateStats(venueData);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Error fetching venues:', err);
+        setLoading(false);
+      });
+  }, []);
 
-  // Calculate venue statistics
+  // Handle search filtering
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setFilteredVenues(venues);
+    } else {
+      const lowercasedTerm = searchTerm.toLowerCase();
+      const results = venues.filter(venue => 
+        venue.venue_name?.toLowerCase().includes(lowercasedTerm) ||
+        venue.location?.toLowerCase().includes(lowercasedTerm) ||
+        venue.room_type?.toLowerCase().includes(lowercasedTerm) ||
+        venue.organizer_email?.toLowerCase().includes(lowercasedTerm) ||
+        venue.available_facilities?.some(facility => 
+          facility.toLowerCase().includes(lowercasedTerm)
+        ) ||
+        venue.availability?.toLowerCase().includes(lowercasedTerm)
+      );
+      setFilteredVenues(results);
+    }
+  }, [searchTerm, venues]);
+
   const calculateStats = (venueData) => {
-    const stats = {
-      roomTypes: {},
-      availabilityStatus: {},
-      totalCapacity: 0,
+    const newStats = {
       totalVenues: venueData.length,
-      facilitiesCount: {}
+      availableVenues: venueData.filter(v => v.availability === 'Available').length,
+      totalCapacity: venueData.reduce((sum, venue) => sum + (parseInt(venue.capacity) || 0), 0),
+      locations: {}
     };
 
+    // Calculate locations
     venueData.forEach(venue => {
-      // Count room types
-      stats.roomTypes[venue.roomType] = (stats.roomTypes[venue.roomType] || 0) + 1;
-      
-      // Count availability status
-      stats.availabilityStatus[venue.availability] = (stats.availabilityStatus[venue.availability] || 0) + 1;
-      
-      // Sum total capacity
-      stats.totalCapacity += venue.capacity;
-      
-      // Count facilities
-      venue.facilities.forEach(facility => {
-        stats.facilitiesCount[facility] = (stats.facilitiesCount[facility] || 0) + 1;
-      });
+      const location = venue.location;
+      newStats.locations[location] = (newStats.locations[location] || 0) + 1;
     });
 
-    return stats;
+    setStats(newStats);
   };
 
-  // Fetch venues from the server
-  const fetchVenues = async () => {
-    setLoading(true);
-    try {
-      // In a real application, this would be an API call
-      // const response = await axios.get("http://localhost:5000/api/venues");
-      // setVenues(response.data);
-      
-      // Using dummy data instead
-      setTimeout(() => {
-        setVenues(dummyVenues);
-        // Calculate statistics after venues are loaded
-        setVenueStats(calculateStats(dummyVenues));
-        setLoading(false);
-      }, 800); // Simulate network delay
-    } catch (err) {
-      setError("Failed to fetch venues. Please try again later.");
-      setLoading(false);
+  // Handle search input changes
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+  };
+
+  const handleAddVenue = () => {
+    // Navigate to the add venue page
+    navigate('/addVenue');
+  };
+
+  const handleUpdateVenue = (venueId) => {
+    navigate(`/UpdateVenueForm/${venueId}`);
+  };
+  
+
+  const handleDeleteVenue = (venueId) => {
+    // Confirm before deleting
+    if (window.confirm('Are you sure you want to delete this venue?')) {
+      axios.delete(`http://localhost:5000/api/venues/${venueId}`)
+        .then(() => {
+          // Remove the venue from state after successful deletion
+          const updatedVenues = venues.filter(venue => venue._id !== venueId);
+          setVenues(updatedVenues);
+          setFilteredVenues(updatedVenues);
+          calculateStats(updatedVenues);
+          alert('Venue deleted successfully!');
+        })
+        .catch((err) => {
+          console.error('Error deleting venue:', err);
+          alert('Failed to delete venue. Please try again.');
+        });
     }
   };
 
-  // Load venues when component mounts or refreshTrigger changes
-  useEffect(() => {
-    fetchVenues();
-  }, [refreshTrigger]);
-
-  // Handle page change
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  // Handle rows per page change
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Open delete confirmation dialog
-  const handleDeleteClick = (venue) => {
-    setVenueToDelete(venue);
-    setDeleteDialogOpen(true);
-  };
-
-  // Close delete confirmation dialog
-  const handleDeleteCancel = () => {
-    setVenueToDelete(null);
-    setDeleteDialogOpen(false);
-  };
-
-  // Execute venue deletion
-  const handleDeleteConfirm = async () => {
-    try {
-      // In a real application, this would be an API call
-      // await axios.delete(`http://localhost:5000/api/venues/${venueToDelete.id}`);
-      
-      // Simulate deletion
-      const updatedVenues = venues.filter(venue => venue.id !== venueToDelete.id);
-      setVenues(updatedVenues);
-      // Update statistics after deletion
-      setVenueStats(calculateStats(updatedVenues));
-      setDeleteSuccess(true);
-      
-      // Auto-hide success message after 5 seconds
-      setTimeout(() => {
-        setDeleteSuccess(false);
-      }, 5000);
-    } catch (err) {
-      setError("Failed to delete venue. Please try again later.");
-    } finally {
-      setDeleteDialogOpen(false);
-      setVenueToDelete(null);
-    }
-  };
-
-  // View venue details
-  const handleViewDetails = (venue) => {
-    setSelectedVenue(venue);
-    setDetailDialogOpen(true);
-  };
-
-  // Close detail dialog
-  const handleCloseDetails = () => {
-    setDetailDialogOpen(false);
-    setSelectedVenue(null);
-  };
-
-  // Get status chip color based on availability
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Available":
-        return { color: "success", text: "Available" };
-      case "Reserved":
-        return { color: "warning", text: "Reserved" };
-      case "Under Maintenance":
-        return { color: "error", text: "Maintenance" };
-      default:
-        return { color: "default", text: status };
-    }
-  };
-
-  // Filter venues based on search term and availability filter
-  const filteredVenues = venues.filter(venue => {
-    const matchesSearch = 
-      venue.venueName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venue.roomType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venue.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venue.organizerEmail.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFilter = filterAvailability === "All" || venue.availability === filterAvailability;
-    
-    return matchesSearch && matchesFilter;
-  });
-
-  // Calculate displayed rows
-  const displayedVenues = filteredVenues
-    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
-  // Toggle statistics view
-  const toggleStats = () => {
-    setShowStats(!showStats);
-  };
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 20 }}>
+        <CircularProgress size={60} thickness={4} sx={{ color: theme.palette.primary.main }} />
+      </Box>
+    );
+  }
 
   return (
-    <Paper elevation={6} sx={{ 
-      maxWidth: 1200, 
-      margin: "auto", 
-      mt: 5, 
-      mb: 5,
-      borderRadius: 3,
-      overflow: "hidden",
-      transition: "all 0.3s ease-in-out",
-      '&:hover': {
-        boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-      }
-    }}>
-
-      
-      <Box sx={{ 
-        p: 3, 
-        background: "linear-gradient(45deg, #3f51b5 30%, #5c6bc0 90%)",
-        color: "white",
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <Box>
-          <Typography variant="h4" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center' }}>
-            <MeetingRoom sx={{ mr: 1.5, fontSize: 35 }} />
-            Venue List
-          </Typography>
-          <Typography variant="subtitle1">
-            Manage your venues and rooms
-          </Typography>
-        </Box>
+    <Container maxWidth="xl" sx={{ mt: 8, mb: 6 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h3" fontWeight="bold" color="primary">
+          Venue Management Dashboard
+        </Typography>
         <Button
-        component={Link} to="/addVenue"
           variant="contained"
-          color="secondary"
+          color="primary"
+          startIcon={<AddIcon />}
           size="large"
-          startIcon={<Add />}
-          onClick={onAddVenue}
-          sx={{
+          onClick={handleAddVenue}
+          sx={{ 
+            borderRadius: 2, 
             fontWeight: 'bold',
             px: 3,
-            py: 1.2,
-            backgroundColor: 'white',
-            color: '#3f51b5',
+            py: 1,
+            boxShadow: 3,
             '&:hover': {
-              backgroundColor: '#e0e0e0',
+              boxShadow: 5,
+              backgroundColor: theme.palette.primary.dark
             }
           }}
         >
           Add Venue
         </Button>
       </Box>
+      <Divider sx={{ mb: 4 }} />
 
-      {/* Collapse success message */}
-      <Collapse in={deleteSuccess}>
-        <Alert 
-          severity="success"
-          sx={{ m: 2 }}
-          onClose={() => setDeleteSuccess(false)}
-        >
-          Venue deleted successfully!
-        </Alert>
-      </Collapse>
-
-      {/* Error message */}
-      {error && (
-        <Alert severity="error" sx={{ m: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Statistics Section */}
-      <Collapse in={showStats}>
-        <Box sx={{ p: 3, pb: 1 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Card variant="outlined" sx={{ mb: 2 }}>
-                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="h6" color="primary" sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Assessment sx={{ mr: 1 }} />
-                      Venue Statistics
-                    </Typography>
-                    <Button 
-                      size="small" 
-                      variant="outlined" 
-                      onClick={toggleStats}
-                    >
-                      Hide Stats
-                    </Button>
-                  </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  
-                  <Grid container spacing={3}>
-                    {/* Total Statistics */}
-                    <Grid item xs={12} md={4}>
-                      <Card variant="outlined" sx={{ bgcolor: 'primary.light', color: 'white' }}>
-                        <CardContent>
-                          <Typography variant="subtitle2">Total Venues</Typography>
-                          <Typography variant="h3" sx={{ fontWeight: 'bold', my: 1 }}>
-                            {venueStats.totalVenues}
-                          </Typography>
-                          <Typography variant="body2">
-                            Total Capacity: {venueStats.totalCapacity} people
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-
-                    {/* Room Types */}
-                    <Grid item xs={12} md={4}>
-                      <Card variant="outlined">
-                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                          <Typography variant="subtitle2" color="textSecondary">Room Types</Typography>
-                          {Object.entries(venueStats.roomTypes).map(([type, count]) => (
-                            <Box key={type} sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                              <Typography variant="body2">{type}</Typography>
-                              <Typography variant="body2" fontWeight="bold">{count}</Typography>
-                            </Box>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    </Grid>
-
-                    {/* Availability Status */}
-                    <Grid item xs={12} md={4}>
-                      <Card variant="outlined">
-                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                          <Typography variant="subtitle2" color="textSecondary">Availability Status</Typography>
-                          {Object.entries(venueStats.availabilityStatus).map(([status, count]) => (
-                            <Box key={status} sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, alignItems: 'center' }}>
-                              <Chip 
-                                label={status} 
-                                size="small" 
-                                color={getStatusColor(status).color} 
-                                sx={{ minWidth: 120 }}
-                              />
-                              <Typography variant="body2" fontWeight="bold">{count}</Typography>
-                            </Box>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </Box>
-      </Collapse>
-
-      {/* Search and filter controls */}
-      <Box sx={{ p: 3, pb: 1 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Search by name, type, location or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search color="primary" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={8} md={3}>
-            <FormControl fullWidth variant="outlined">
-              <InputLabel>Filter by Availability</InputLabel>
-              <Select
-                value={filterAvailability}
-                onChange={(e) => setFilterAvailability(e.target.value)}
-                label="Filter by Availability"
-                startAdornment={
-                  <InputAdornment position="start">
-                    <FilterList color="primary" />
-                  </InputAdornment>
-                }
-              >
-                <MenuItem value="All">All Venues</MenuItem>
-                <MenuItem value="Available">Available</MenuItem>
-                <MenuItem value="Reserved">Reserved</MenuItem>
-                <MenuItem value="Under Maintenance">Under Maintenance</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={5} md={2}>
-            <Button
-              variant="outlined"
-              color="primary"
-              fullWidth
-              startIcon={<Refresh />}
-              onClick={fetchVenues}
-            >
-              Refresh
-            </Button>
-          </Grid>
-          <Grid item xs={12} md={2}>
-            {!showStats && (
-              <Button
-                variant="outlined"
-                color="primary"
-                fullWidth
-                startIcon={<BarChart />}
-                onClick={toggleStats}
-              >
-                Show Stats
-              </Button>
-            )}
-          </Grid>
+      {/* Stats Summary Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={4} sx={{ height: '100%', borderRadius: 2, transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-5px)' } }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Typography variant="h6" color="textSecondary">Total Venues</Typography>
+                <MeetingRoomIcon color="primary" fontSize="large" />
+              </Box>
+              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2 }}>
+                {stats.totalVenues}
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
-      </Box>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={4} sx={{ height: '100%', borderRadius: 2, bgcolor: 'rgba(0, 196, 159, 0.08)', transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-5px)' } }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Typography variant="h6" color="textSecondary">Available</Typography>
+                <EventAvailableIcon sx={{ color: '#00C49F' }} fontSize="large" />
+              </Box>
+              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: '#00C49F' }}>
+                {stats.availableVenues}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                {Math.round((stats.availableVenues / stats.totalVenues) * 100)}% of total
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={4} sx={{ height: '100%', borderRadius: 2, bgcolor: 'rgba(0, 136, 254, 0.08)', transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-5px)' } }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Typography variant="h6" color="textSecondary">Total Capacity</Typography>
+                <GroupIcon sx={{ color: '#0088FE' }} fontSize="large" />
+              </Box>
+              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: '#0088FE' }}>
+                {stats.totalCapacity}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                Avg: {Math.round(stats.totalCapacity / stats.totalVenues)} per venue
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={4} sx={{ height: '100%', borderRadius: 2, bgcolor: 'rgba(255, 128, 66, 0.08)', transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-5px)' } }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Typography variant="h6" color="textSecondary">Locations</Typography>
+                <LocationOnIcon sx={{ color: '#FF8042' }} fontSize="large" />
+              </Box>
+              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: '#FF8042' }}>
+                {Object.keys(stats.locations).length}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                Different venue locations
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-      {/* Venues table */}
-      <Box sx={{ p: 3 }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
-            <CircularProgress />
+      {/* Search Bar */}
+      <Paper elevation={3} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="Search venues by name, location, type, availability or facilities..."
+          value={searchTerm}
+          onChange={handleSearchChange}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="primary" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ 
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover fieldset': {
+                borderColor: theme.palette.primary.main,
+              },
+            }
+          }}
+        />
+        {searchTerm && (
+          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="body2" color="textSecondary">
+              Found {filteredVenues.length} venues matching "{searchTerm}"
+            </Typography>
+            {filteredVenues.length === 0 && (
+              <Typography variant="body2" color="error">
+                No venues found. Try another search term.
+              </Typography>
+            )}
           </Box>
-        ) : filteredVenues.length > 0 ? (
-          <TableContainer>
-            <Table sx={{ minWidth: 650 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Venue Name</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Room Type</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Capacity</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Location</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Time Slot</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Organizer</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Facilities</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {displayedVenues.map((venue) => {
-                  const status = getStatusColor(venue.availability);
-                  return (
-                    <TableRow 
-                      key={venue.id}
-                      sx={{ 
-                        '&:hover': { 
-                          backgroundColor: 'rgba(63, 81, 181, 0.08)',
-                        }
-                      }}
-                    >
-                      <TableCell>{venue.venueName}</TableCell>
-                      <TableCell>{venue.roomType}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <EventSeat fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                          {venue.capacity}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <LocationOn fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                          {venue.location}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
+        )}
+      </Paper>
+
+      {/* Enhanced Table */}
+      <Paper elevation={5} sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: 3 }}>
+        <Box sx={{ p: 2, bgcolor: theme.palette.primary.main, color: 'white' }}>
+          <Typography variant="h5" fontWeight="medium">
+            Venue List
+          </Typography>
+        </Box>
+        <TableContainer sx={{ maxHeight: 600 }}>
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>ID</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Venue Name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Room Type</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Location</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Capacity</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Availability</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Time Slot</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Organizer Email</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Facilities</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredVenues.map((venue, index) => (
+                <TableRow 
+                  key={venue._id} 
+                  sx={{ 
+                    '&:nth-of-type(odd)': { bgcolor: '#fafafa' },
+                    transition: 'background-color 0.2s',
+                    '&:hover': { bgcolor: 'rgba(0, 136, 254, 0.08)' }
+                  }}
+                >
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>
+                    <Typography fontWeight="medium">{venue.venue_name}</Typography>
+                  </TableCell>
+                  <TableCell>{venue.room_type || '-'}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <LocationOnIcon fontSize="small" sx={{ mr: 0.5, color: theme.palette.text.secondary }} />
+                      {venue.location}
+                    </Box>
+                  </TableCell>
+                  <TableCell>{venue.capacity}</TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={venue.availability || 'Unknown'} 
+                      size="small" 
+                      color={venue.availability === 'Available' ? 'success' : 'default'}
+                      variant={venue.availability === 'Available' ? 'filled' : 'outlined'}
+                    />
+                  </TableCell>
+                  <TableCell>{venue["Time Slot"] || '-'}</TableCell>
+                  <TableCell>
+                    <Tooltip title="Send email" arrow>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          textDecoration: 'underline', 
+                          cursor: 'pointer',
+                          color: theme.palette.primary.main
+                        }}
+                      >
+                        {venue.organizer_email}
+                      </Typography>
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {(venue.available_facilities || []).map((facility, index) => (
                         <Chip 
-                          label={status.text} 
+                          key={index} 
+                          label={facility} 
                           size="small" 
-                          color={status.color} 
+                          color="primary" 
+                          variant="outlined"
+                          sx={{ borderRadius: 1 }}
+                        />
+                      ))}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Tooltip title="Edit Venue" arrow>
+                        <IconButton 
+                          size="small"
+                          color="primary"
+                          onClick={() => handleUpdateVenue(venue._id)}
                           sx={{ 
-                            minWidth: 100,
-                            fontWeight: 'medium'
+                            bgcolor: 'rgba(25, 118, 210, 0.1)',
+                            '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.2)' }
                           }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Timer fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                          {venue.timeSlot}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Email fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                          {venue.organizerEmail}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {venue.facilities.slice(0, 2).map(facility => (
-                            <Chip
-                              key={facility}
-                              label={facility}
-                              size="small"
-                              variant="outlined"
-                              color="primary"
-                              sx={{ fontSize: '0.7rem' }}
-                            />
-                          ))}
-                          {venue.facilities.length > 2 && (
-                            <Tooltip title={venue.facilities.slice(2).join(', ')}>
-                              <Chip
-                                label={`+${venue.facilities.length - 2}`}
-                                size="small"
-                                color="primary"
-                                sx={{ fontSize: '0.7rem' }}
-                              />
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex' }}>
-                          <Tooltip title="View Details">
-                            <IconButton 
-                              color="primary" 
-                              onClick={() => handleViewDetails(venue)}
-                              size="small"
-                            >
-                              <VisibilityOutlined />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Edit Venue">
-                            <IconButton 
-                              color="primary" 
-                              onClick={() => onEdit(venue)}
-                              size="small"
-                            >
-                              <Edit />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete Venue">
-                            <IconButton 
-                              color="error" 
-                              onClick={() => handleDeleteClick(venue)}
-                              size="small"
-                            >
-                              <Delete />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={filteredVenues.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          </TableContainer>
-        ) : (
-          <Box sx={{ p: 5, textAlign: 'center' }}>
-            <Typography variant="h6" color="textSecondary">
-              No venues found matching your criteria.
-            </Typography>
-            <Typography variant="body1" color="textSecondary" sx={{ mt: 1 }}>
-              Try adjusting your search or filters.
-            </Typography>
-          </Box>
-        )}
-      </Box>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={handleDeleteCancel}
-      >
-        <DialogTitle>
-          Confirm Deletion
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete the venue "{venueToDelete?.venueName}"? 
-            This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDeleteCancel} color="primary">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleDeleteConfirm} 
-            color="error" 
-            variant="contained"
-            startIcon={<Delete />}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Venue Details Dialog */}
-      <Dialog
-        open={detailDialogOpen}
-        onClose={handleCloseDetails}
-        maxWidth="md"
-        fullWidth
-      >
-        {selectedVenue && (
-          <>
-            <DialogTitle sx={{ 
-              background: "linear-gradient(45deg, #3f51b5 30%, #5c6bc0 90%)",
-              color: "white",
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <MeetingRoom sx={{ mr: 1.5 }} />
-              {selectedVenue.venueName}
-            </DialogTitle>
-            <DialogContent>
-              <Grid container spacing={3} sx={{ mt: 1 }}>
-                <Grid item xs={12} md={6}>
-                  <Card variant="outlined" sx={{ height: '100%' }}>
-                    <CardContent>
-                      <Typography variant="h6" color="primary" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                        <Category sx={{ mr: 1 }} />
-                        Basic Information
-                      </Typography>
-                      <Divider sx={{ mb: 2 }} />
-                      
-                      <Typography variant="subtitle2" color="textSecondary">Room Type</Typography>
-                      <Typography variant="body1" sx={{ mb: 2 }}>{selectedVenue.roomType}</Typography>
-                      
-                      <Typography variant="subtitle2" color="textSecondary">Capacity</Typography>
-                      <Typography variant="body1" sx={{ mb: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <EventSeat fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                          {selectedVenue.capacity} people
-                        </Box>
-                      </Typography>
-                      
-                      <Typography variant="subtitle2" color="textSecondary">Location</Typography>
-                      <Typography variant="body1" sx={{ mb: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <LocationOn fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                          {selectedVenue.location}
-                        </Box>
-                      </Typography>
-                      
-                      <Typography variant="subtitle2" color="textSecondary">Organizer Email</Typography>
-                      <Typography variant="body1" sx={{ mb: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Email fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                          {selectedVenue.organizerEmail}
-                        </Box>
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <Card variant="outlined" sx={{ height: '100%' }}>
-                    <CardContent>
-                      <Typography variant="h6" color="primary" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                        <InfoOutlined sx={{ mr: 1 }} />
-                        Availability & Features
-                      </Typography>
-                      <Divider sx={{ mb: 2 }} />
-                      
-                      <Typography variant="subtitle2" color="textSecondary">Availability Status</Typography>
-                      <Box sx={{ mb: 2 }}>
-                        <Chip 
-                          label={getStatusColor(selectedVenue.availability).text} 
-                          size="small" 
-                          color={getStatusColor(selectedVenue.availability).color} 
-                          sx={{ mt: 0.5, fontWeight: 'medium' }}
-                        />
-                      </Box>
-                      
-                      <Typography variant="subtitle2" color="textSecondary">Time Slot</Typography>
-                      <Typography variant="body1" sx={{ mb: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Timer fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                          {selectedVenue.timeSlot}
-                        </Box>
-                      </Typography>
-                      
-                      <Typography variant="subtitle2" color="textSecondary">Available Facilities</Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                        {selectedVenue.facilities.length > 0 ? (
-                          selectedVenue.facilities.map(facility => (
-                            <Chip 
-                              key={facility} 
-                              label={facility} 
-                              size="small" 
-                              color="primary" 
-                              variant="outlined" 
-                              sx={{ margin: 0.5 }}
-                            />
-                          ))
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">No facilities available</Typography>
-                        )}
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-            </DialogContent>
-            <DialogActions>
-              <Button 
-                onClick={() => onEdit(selectedVenue)} 
-                color="primary"
-                startIcon={<Edit />}
-              >
-                Edit Venue
-              </Button>
-              <Button 
-                onClick={handleCloseDetails} 
-                variant="contained"
-                color="primary"
-              >
-                Close
-              </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
-    </Paper>
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Venue" arrow>
+                        <IconButton 
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteVenue(venue._id)}
+                          sx={{ 
+                            bgcolor: 'rgba(211, 47, 47, 0.1)',
+                            '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.2)' }
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Container>
   );
-};
-
-// Define PropTypes
-VenueList.propTypes = {
-  onEdit: PropTypes.func.isRequired,
-  refreshTrigger: PropTypes.number,
-  onAddVenue: PropTypes.func.isRequired
 };
 
 export default VenueList;
