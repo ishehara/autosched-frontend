@@ -11,6 +11,7 @@ import VenueList from "./components/VenueManagement/VenueList";
 import UpdateVenueForm from "./components/VenueManagement/UpdateVenueForm";
 import ExaminerForm from "./components/ExaminerManagement/ExaminerForm";
 import ExaminerList from "./components/ExaminerManagement/ExaminerList";
+import EditExaminer from "./components/ExaminerManagement/EditExaminer";
 import ReportsPage from "./components/Reports/ReportsPage";
 import LoginForm from "./components/Pages/LoginForm";
 import PresentationView from "./components/PresentationManagement/PresentationView";
@@ -45,6 +46,7 @@ function App() {
         <Route path="/AIScheduler" element={<AIScheduler />} /> {/* ✅ Check the path here */}
   
         <Route path="/addExaminer" element={<ExaminerForm />} />
+        <Route path="/editExaminer/:id" element={<EditExaminer />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/ExaminerList" element={<ExaminerList />} />
 
