@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   TextField,
   Button,
@@ -21,6 +23,8 @@ import {
   FormControlLabel,
   Checkbox,
   FormLabel,
+  Alert,
+  Snackbar
 } from "@mui/material";
 import { DatePicker, TimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -39,49 +43,63 @@ import {
   AccessTime,
 } from "@mui/icons-material";
 
+const API_BASE_URL = 'http://localhost:5000/api';
+
 export default function ExaminerForm() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
+    phone_number: "", // Matches backend field
     department: "",
     position: "",
-    expertise: [],
-    availableTimeSlots: [],
+    areas_of_expertise: [], // Matches backend field
+    availability: [], // Matches backend field
   });
 
   const [currentSlot, setCurrentSlot] = useState({
     date: null,
-    slots: [{ startTime: null, endTime: null }],
+    start_time: null,
+    end_time: null,
   });
 
   const [errors, setErrors] = useState({
     name: "",
     email: "",
-    phone: "",
+    phone_number: "",
     department: "",
     position: "",
-    expertise: "",
+    areas_of_expertise: "",
     date: "",
-    timeSlots: [],
+    time: "",
   });
 
-  const [timeSlotErrors, setTimeSlotErrors] = useState([""]);
+  // For success/error messages
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success"
+  });
 
-  // Available expertise options
+  // Available expertise options based on backend expectations
   const expertiseOptions = [
-    { value: "AI", label: "Artificial Intelligence" },
-    { value: "Cybersecurity", label: "Cybersecurity" },
+    { value: "Software Development", label: "Software Development" },
+    { value: "Web Development", label: "Web Development" },
+    { value: "Mobile Apps", label: "Mobile Apps" },
+    { value: "Artificial Intelligence", label: "Artificial Intelligence" },
+    { value: "Machine Learning", label: "Machine Learning" },
     { value: "Data Science", label: "Data Science" },
-    { value: "DA", label: "Database Administration" },
-    { value: "UI", label: "UX/UI Design" },
-    { value: "MAD", label: "Mobile Application Development" },
+    { value: "Database Systems", label: "Database Systems" },
+    { value: "Computer Networks", label: "Computer Networks" },
+    { value: "Cybersecurity", label: "Cybersecurity" },
+    { value: "Cloud Computing", label: "Cloud Computing" },
+    { value: "DevOps", label: "DevOps" },
+    { value: "Game Development", label: "Game Development" },
   ];
 
   const validateName = (value) => {
     if (!value.trim()) return "Name is required";
     if (value.length < 3) return "Name must be at least 3 characters";
-    if (!/^[a-zA-Z\s]+$/.test(value)) return "Name can only contain letters";
     return "";
   };
 
@@ -115,9 +133,9 @@ export default function ExaminerForm() {
     return "";
   };
 
-  const validateTimeSlot = (slot, index) => {
-    if (!slot.startTime || !slot.endTime) return "Both start and end times are required";
-    if (slot.startTime.isAfter(slot.endTime)) return "Start time must be before end time";
+  const validateTime = (startTime, endTime) => {
+    if (!startTime || !endTime) return "Both start and end times are required";
+    if (startTime.isAfter(endTime)) return "Start time must be before end time";
     return "";
   };
 
@@ -134,7 +152,7 @@ export default function ExaminerForm() {
       case "email":
         error = validateEmail(value);
         break;
-      case "phone":
+      case "phone_number":
         error = validatePhone(value);
         break;
       case "department":
@@ -150,7 +168,7 @@ export default function ExaminerForm() {
 
   const handleExpertiseChange = (e) => {
     const { value, checked } = e.target;
-    let updatedExpertise = [...formData.expertise];
+    let updatedExpertise = [...formData.areas_of_expertise];
     
     if (checked) {
       updatedExpertise.push(value);
@@ -158,11 +176,11 @@ export default function ExaminerForm() {
       updatedExpertise = updatedExpertise.filter(item => item !== value);
     }
     
-    setFormData({ ...formData, expertise: updatedExpertise });
+    setFormData({ ...formData, areas_of_expertise: updatedExpertise });
     
     // Validate expertise
     const expertiseError = validateExpertise(updatedExpertise);
-    setErrors({ ...errors, expertise: expertiseError });
+    setErrors({ ...errors, areas_of_expertise: expertiseError });
   };
 
   const handleDateChange = (date) => {
@@ -171,64 +189,55 @@ export default function ExaminerForm() {
     setErrors({ ...errors, date: dateError });
   };
 
-  const handleSlotChange = (index, key, value) => {
-    const updatedSlots = [...currentSlot.slots];
-    updatedSlots[index][key] = value;
-    setCurrentSlot({ ...currentSlot, slots: updatedSlots });
-    
-    // Validate this time slot
-    const updatedErrors = [...timeSlotErrors];
-    updatedErrors[index] = validateTimeSlot(
-      { startTime: key === "startTime" ? value : updatedSlots[index].startTime, 
-        endTime: key === "endTime" ? value : updatedSlots[index].endTime 
-      }, 
-      index
-    );
-    setTimeSlotErrors(updatedErrors);
+  const handleStartTimeChange = (time) => {
+    setCurrentSlot({ ...currentSlot, start_time: time });
+    const timeError = validateTime(time, currentSlot.end_time);
+    setErrors({ ...errors, time: timeError });
   };
 
-  const addSlot = () => {
-    setCurrentSlot({
-      ...currentSlot,
-      slots: [...currentSlot.slots, { startTime: null, endTime: null }],
-    });
-    setTimeSlotErrors([...timeSlotErrors, ""]);
+  const handleEndTimeChange = (time) => {
+    setCurrentSlot({ ...currentSlot, end_time: time });
+    const timeError = validateTime(currentSlot.start_time, time);
+    setErrors({ ...errors, time: timeError });
   };
 
-  const removeSlot = (index) => {
-    const updatedSlots = [...currentSlot.slots];
-    updatedSlots.splice(index, 1);
-    setCurrentSlot({ ...currentSlot, slots: updatedSlots });
-    
-    const updatedErrors = [...timeSlotErrors];
-    updatedErrors.splice(index, 1);
-    setTimeSlotErrors(updatedErrors);
-  };
-
-  const addDateSlot = () => {
+  const addAvailabilitySlot = () => {
     // Validate date and time slots
     const dateError = validateDate(currentSlot.date);
+    const timeError = validateTime(currentSlot.start_time, currentSlot.end_time);
     
-    const updatedTimeSlotErrors = currentSlot.slots.map((slot, index) => 
-      validateTimeSlot(slot, index)
-    );
+    setErrors({ 
+      ...errors, 
+      date: dateError,
+      time: timeError
+    });
     
-    setErrors({ ...errors, date: dateError });
-    setTimeSlotErrors(updatedTimeSlotErrors);
-    
-    // Check if there are any errors
-    if (dateError || updatedTimeSlotErrors.some(error => error)) {
-      return; // Don't add if there are errors
+    // Don't add if there are errors
+    if (dateError || timeError) {
+      return;
     }
     
-    if (currentSlot.date && currentSlot.slots.length > 0) {
+    if (currentSlot.date && currentSlot.start_time && currentSlot.end_time) {
+      // Format to match backend expectations
+      const newSlot = {
+        date: currentSlot.date.format('YYYY-MM-DD'),
+        start_time: currentSlot.start_time.format('HH:mm'),
+        end_time: currentSlot.end_time.format('HH:mm')
+      };
+      
       setFormData({
         ...formData,
-        availableTimeSlots: [...formData.availableTimeSlots, currentSlot],
+        availability: [...formData.availability, newSlot],
       });
-      setCurrentSlot({ date: null, slots: [{ startTime: null, endTime: null }] });
-      setTimeSlotErrors([""]);
-      setErrors({ ...errors, date: "" });
+      
+      // Reset current slot
+      setCurrentSlot({ 
+        date: null, 
+        start_time: null, 
+        end_time: null 
+      });
+      
+      setErrors({ ...errors, date: "", time: "" });
     }
   };
 
@@ -236,15 +245,15 @@ export default function ExaminerForm() {
     const newErrors = {
       name: validateName(formData.name),
       email: validateEmail(formData.email),
-      phone: validatePhone(formData.phone),
+      phone_number: validatePhone(formData.phone_number),
       department: validateSelect(formData.department, "Department"),
       position: validateSelect(formData.position, "Position"),
-      expertise: validateExpertise(formData.expertise),
+      areas_of_expertise: validateExpertise(formData.areas_of_expertise),
     };
 
     // Check if availability slots are added
-    if (formData.availableTimeSlots.length === 0) {
-      newErrors.date = "At least one busy hour is required";
+    if (formData.availability.length === 0) {
+      newErrors.date = "At least one availability slot is required";
     }
 
     setErrors(newErrors);
@@ -257,52 +266,88 @@ export default function ExaminerForm() {
     e.preventDefault();
     
     if (!validateForm()) {
-      alert("Please correct the form errors before submitting.");
+      setSnackbar({
+        open: true,
+        message: "Please correct the form errors before submitting.",
+        severity: "error"
+      });
       return;
     }
     
-    console.log("Submitting:", formData);
-    
     try {
-      const response = await fetch("http://your-backend-api/examiners", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+      console.log("Submitting examiner data:", formData);
+      
+      // Send data to backend with proper API format
+      const response = await axios.post(`${API_BASE_URL}/examiners/`, formData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (response.ok) {
-        alert("Examiner added successfully!");
-        // Reset form
-        setFormData({
-          name: "",
-          email: "",
-          phone: "",
-          department: "",
-          position: "",
-          expertise: [],
-          availableTimeSlots: [],
-        });
-      } else {
-        alert("Error adding examiner.");
-      }
+      console.log("API response:", response.data);
+      
+      setSnackbar({
+        open: true,
+        message: "Examiner added successfully!",
+        severity: "success"
+      });
+      
+      // Reset form after successful submission
+      setFormData({
+        name: "",
+        email: "",
+        phone_number: "",
+        department: "",
+        position: "",
+        areas_of_expertise: [],
+        availability: [],
+      });
+      
+      // Navigate back to examiner list after short delay
+      setTimeout(() => {
+        navigate('/ExaminerList');
+      }, 2000);
+      
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error adding examiner:", error);
+      
+      // Detailed error logging to help with debugging
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+        console.error("Response headers:", error.response.headers);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error("Request made but no response received:", error.request);
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error("Error message:", error.message);
+      }
+      
+      setSnackbar({
+        open: true,
+        message: `Error adding examiner: ${error.response?.data?.message || error.message || "Please try again"}`,
+        severity: "error"
+      });
     }
   };
 
-  const removeDateSlot = (index) => {
-    const updatedSlots = [...formData.availableTimeSlots];
+  const removeAvailabilitySlot = (index) => {
+    const updatedSlots = [...formData.availability];
     updatedSlots.splice(index, 1);
     setFormData({
       ...formData,
-      availableTimeSlots: updatedSlots,
+      availability: updatedSlots,
     });
   };
 
-  // Helper function to get expertise label from value
-  const getExpertiseLabel = (value) => {
-    const option = expertiseOptions.find(opt => opt.value === value);
-    return option ? option.label : value;
+  const handleCloseSnackbar = () => {
+    setSnackbar({
+      ...snackbar,
+      open: false
+    });
   };
 
   return (
@@ -319,7 +364,7 @@ export default function ExaminerForm() {
         top: 0,
         left: 0,
         right: 0,
-        pt: 5,
+        pt: 10, // Increased to account for navbar
       }}
     >
       <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -350,6 +395,7 @@ export default function ExaminerForm() {
                 background: "linear-gradient(45deg, #3f51b5 30%, #5c6bc0 90%)",
                 color: "white",
                 textAlign: "center",
+                borderRadius: "4px 4px 0 0",
               }}
             >
               <Typography variant="h4" fontWeight="bold">
@@ -415,13 +461,13 @@ export default function ExaminerForm() {
                     <TextField
                       fullWidth
                       label="Phone Number"
-                      name="phone"
-                      value={formData.phone}
+                      name="phone_number"
+                      value={formData.phone_number}
                       onChange={handleChange}
                       margin="normal"
                       required
-                      error={!!errors.phone}
-                      helperText={errors.phone}
+                      error={!!errors.phone_number}
+                      helperText={errors.phone_number}
                       InputProps={{
                         startAdornment: <InputAdornment position="start"><Phone color="primary" /></InputAdornment>,
                       }}
@@ -479,7 +525,7 @@ export default function ExaminerForm() {
                     <FormControl 
                       fullWidth 
                       required 
-                      error={!!errors.expertise} 
+                      error={!!errors.areas_of_expertise} 
                       component="fieldset" 
                       sx={{ mt: 2 }}
                     >
@@ -500,7 +546,7 @@ export default function ExaminerForm() {
                             key={option.value}
                             control={
                               <Checkbox 
-                                checked={formData.expertise.includes(option.value)} 
+                                checked={formData.areas_of_expertise.includes(option.value)} 
                                 onChange={handleExpertiseChange} 
                                 value={option.value}
                                 color="primary"
@@ -510,28 +556,28 @@ export default function ExaminerForm() {
                           />
                         ))}
                       </FormGroup>
-                      {errors.expertise && (
-                        <FormHelperText error>{errors.expertise}</FormHelperText>
+                      {errors.areas_of_expertise && (
+                        <FormHelperText error>{errors.areas_of_expertise}</FormHelperText>
                       )}
                     </FormControl>
                   </Grid>
 
                   {/* Display selected expertise as chips */}
-                  {formData.expertise.length > 0 && (
+                  {formData.areas_of_expertise.length > 0 && (
                     <Grid item xs={12}>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                        {formData.expertise.map(skill => (
+                        {formData.areas_of_expertise.map(skill => (
                           <Chip
                             key={skill}
-                            label={getExpertiseLabel(skill)}
+                            label={skill}
                             color="primary"
                             variant="outlined"
                             onDelete={() => {
-                              const updatedExpertise = formData.expertise.filter(item => item !== skill);
-                              setFormData({ ...formData, expertise: updatedExpertise });
+                              const updatedExpertise = formData.areas_of_expertise.filter(item => item !== skill);
+                              setFormData({ ...formData, areas_of_expertise: updatedExpertise });
                               setErrors({ 
                                 ...errors, 
-                                expertise: validateExpertise(updatedExpertise) 
+                                areas_of_expertise: validateExpertise(updatedExpertise) 
                               });
                             }}
                           />
@@ -556,63 +602,74 @@ export default function ExaminerForm() {
                     </Typography>
                     <Divider sx={{ mb: 2 }} />
                     
-                    <FormControl fullWidth error={!!errors.date} sx={{ mb: 1 }}>
-                      <DatePicker 
-                        label="Select Date" 
-                        value={currentSlot.date} 
-                        onChange={handleDateChange}
-                        sx={{ width: "100%", mt: 1 }}
-                        disablePast
-                      />
-                      {errors.date && <FormHelperText error>{errors.date}</FormHelperText>}
-                    </FormControl>
+                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 2 }}>
+                      <FormControl fullWidth error={!!errors.date}>
+                        <DatePicker 
+                          label="Select Date" 
+                          value={currentSlot.date} 
+                          onChange={handleDateChange}
+                          disablePast
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              variant: 'outlined',
+                              error: !!errors.date
+                            }
+                          }}
+                        />
+                        {errors.date && <FormHelperText error>{errors.date}</FormHelperText>}
+                      </FormControl>
+                    </Box>
                     
-                    {currentSlot.slots.map((slot, index) => (
-                      <Box key={index} sx={{ 
-                        display: "flex", 
-                        flexDirection: { xs: 'column', sm: 'row' },
-                        gap: 1, 
-                        mt: 2, 
-                        alignItems: { xs: 'stretch', sm: 'center' } 
-                      }}>
-                        <FormControl sx={{ width: { xs: '100%', sm: '45%' } }} error={!!timeSlotErrors[index]}>
-                          <TimePicker 
-                            label="Start Time" 
-                            value={slot.startTime} 
-                            onChange={(time) => handleSlotChange(index, "startTime", time)} 
-                          />
-                        </FormControl>
-                        <FormControl sx={{ width: { xs: '100%', sm: '45%' } }} error={!!timeSlotErrors[index]}>
-                          <TimePicker 
-                            label="End Time" 
-                            value={slot.endTime} 
-                            onChange={(time) => handleSlotChange(index, "endTime", time)} 
-                          />
-                        </FormControl>
-                        <IconButton onClick={() => removeSlot(index)} color="error" sx={{ mt: { xs: 1, sm: 0 } }}>
-                          <Delete />
-                        </IconButton>
-                      </Box>
-                    ))}
-                    {timeSlotErrors.some(error => error) && (
-                      <FormHelperText error sx={{ mt: 1 }}>
-                        {timeSlotErrors.find(error => error)}
+                    <Box sx={{ 
+                      display: "flex", 
+                      flexDirection: { xs: 'column', sm: 'row' },
+                      gap: 2, 
+                      mb: 2,
+                      alignItems: { xs: 'stretch', sm: 'center' } 
+                    }}>
+                      <FormControl sx={{ width: { xs: '100%', sm: '45%' } }} error={!!errors.time}>
+                        <TimePicker 
+                          label="Start Time" 
+                          value={currentSlot.start_time} 
+                          onChange={handleStartTimeChange}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              variant: 'outlined',
+                              error: !!errors.time
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormControl sx={{ width: { xs: '100%', sm: '45%' } }} error={!!errors.time}>
+                        <TimePicker 
+                          label="End Time" 
+                          value={currentSlot.end_time} 
+                          onChange={handleEndTimeChange}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              variant: 'outlined',
+                              error: !!errors.time
+                            }
+                          }}
+                        />
+                      </FormControl>
+                    </Box>
+                    
+                    {errors.time && (
+                      <FormHelperText error sx={{ mt: -1, mb: 2 }}>
+                        {errors.time}
                       </FormHelperText>
                     )}
                     
-                    <Box sx={{ mt: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'center' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
                       <Button 
-                        onClick={addSlot} 
-                        variant="outlined" 
-                        sx={{ px: 3 }}
-                      >
-                        + Add Another Time Slot
-                      </Button>
-                      <Button 
-                        onClick={addDateSlot} 
+                        onClick={addAvailabilitySlot} 
                         variant="contained" 
                         color="primary"
-                        disabled={!!errors.date || timeSlotErrors.some(error => error)}
+                        disabled={!!errors.date || !!errors.time}
                         sx={{
                           px: 3,
                           py: 1,
@@ -625,59 +682,47 @@ export default function ExaminerForm() {
                         }}
                         startIcon={<CalendarMonth />}
                       >
-                        Add Date
+                        Add Availability
                       </Button>
                     </Box>
                     
-                    {/* Display added time slots - Improved organization */}
-                    {formData.availableTimeSlots.length > 0 && (
+                    {/* Display added availability slots */}
+                    {formData.availability.length > 0 && (
                       <Box sx={{ mt: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 1, bgcolor: '#f9f9f9' }}>
                         <Typography variant="subtitle1" fontWeight="bold" sx={{ textAlign: 'center', mb: 2 }}>
                           Added Availability
                         </Typography>
                         <List sx={{ width: '100%', bgcolor: 'background.paper' }} dense>
-                          {formData.availableTimeSlots.map((dateSlot, idx) => (
+                          {formData.availability.map((slot, idx) => (
                             <Paper key={idx} sx={{ mb: 2, overflow: 'hidden' }}>
                               <Box sx={{ 
                                 display: 'flex', 
                                 justifyContent: 'space-between', 
                                 alignItems: 'center',
-                                bgcolor: '#6F8FAF	',
+                                bgcolor: '#6F8FAF',
                                 color: 'primary.contrastText',
                                 px: 2,
                                 py: 1
                               }}>
                                 <Typography variant="subtitle2" fontWeight="bold">
-                                  {dayjs(dateSlot.date).format('MMMM D, YYYY')}
+                                  {dayjs(slot.date).format('MMMM D, YYYY')}
                                 </Typography>
                                 <IconButton 
                                   size="small" 
-                                  onClick={() => removeDateSlot(idx)} 
+                                  onClick={() => removeAvailabilitySlot(idx)} 
                                   sx={{ color: 'white' }}
                                 >
                                   <Delete fontSize="small" />
                                 </IconButton>
                               </Box>
-                              <List disablePadding>
-                                {dateSlot.slots.map((slot, slotIdx) => (
-                                  <ListItem 
-                                    key={slotIdx} 
-                                    divider={slotIdx < dateSlot.slots.length - 1}
-                                    sx={{ py: 0.5 }}
-                                  >
-                                    <ListItemText 
-                                      primary={
-                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                          <AccessTime fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                                          <Typography variant="body2">
-                                            {dayjs(slot.startTime).format('h:mm A')} - {dayjs(slot.endTime).format('h:mm A')}
-                                          </Typography>
-                                        </Box>
-                                      } 
-                                    />
-                                  </ListItem>
-                                ))}
-                              </List>
+                              <Box sx={{ p: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <AccessTime fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                                  <Typography variant="body2">
+                                    {slot.start_time} - {slot.end_time}
+                                  </Typography>
+                                </Box>
+                              </Box>
                             </Paper>
                           ))}
                         </List>
@@ -712,6 +757,18 @@ export default function ExaminerForm() {
           </Paper>
         </Container>
       </LocalizationProvider>
+      
+      {/* Snackbar for success/error messages */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

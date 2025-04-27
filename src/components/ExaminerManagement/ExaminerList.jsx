@@ -1,488 +1,642 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Typography,
-  IconButton,
-  TextField,
-  InputAdornment,
-  Box,
-  Chip,
-  Button,
-  Tooltip,
-  Divider,
-  Card,
-  CardContent,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Grid,
-  Container,
-} from "@mui/material";
-import {
-  Search,
-  Delete,
-  Edit,
-  ExpandMore,
-  ExpandLess,
-  CalendarMonth,
-  Refresh,
-  PersonAdd,
-  FilterList,
-  DisplaySettings,
-  School,
-} from "@mui/icons-material";
-import dayjs from "dayjs";
+  Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, Paper, Typography, CircularProgress, Alert, Box, 
+  Divider, Chip, Container, Card, CardContent, Tooltip,
+  Grid, IconButton, Collapse, Stack, Button, TextField, InputAdornment
+} from '@mui/material';
+import EmailIcon from '@mui/icons-material/Email';
+import PhoneIcon from '@mui/icons-material/Phone';
+import SchoolIcon from '@mui/icons-material/School';
+import WorkIcon from '@mui/icons-material/Work';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
+import PersonIcon from '@mui/icons-material/Person';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
+import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import StarIcon from '@mui/icons-material/Star';
+import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import { useNavigate } from 'react-router-dom';
 
-// Function to generate random color based on string (for consistent department colors)
-const stringToColor = (string) => {
-  let hash = 0;
-  for (let i = 0; i < string.length; i++) {
-    hash = string.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const colors = ['#3f51b5', '#f50057', '#00a152', '#ff9800', '#2196f3', '#9c27b0', '#607d8b'];
-  return colors[Math.abs(hash) % colors.length];
-};
+const API_BASE_URL = 'http://localhost:5000/api';
 
-export default function ExaminerList() {
-  const navigate = useNavigate(); // Initialize the navigate function
+const ExaminerList = () => {
   const [examiners, setExaminers] = useState([]);
-  const [search, setSearch] = useState("");
-  const [expandedId, setExpandedId] = useState(null);
-  const [departmentFilter, setDepartmentFilter] = useState("All");
-  
-  // Dummy Data with enhanced information and updated names
-  const dummyData = [
-    {
-      id: 1,
-      name: "Prof. Janaka Silva",
-      email: "janaka.s@gmail.com",
-      phone: "0771234567",
-      department: "IT",
-      position: "Professor",
-      expertise: "Artificial Intelligence, Data Science, Database Adminstration",
-      publications: 24,
-      availableTimeSlots: [
-        {
-          date: dayjs().add(1, "day"),
-          slots: [{ startTime: dayjs().hour(9).minute(0), endTime: dayjs().hour(11).minute(0) }],
-        },
-        {
-          date: dayjs().add(3, "day"),
-          slots: [{ startTime: dayjs().hour(14).minute(0), endTime: dayjs().hour(16).minute(0) }],
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: "Dr. H.Wijesinghe",
-      email: "wijesinghe.h@gmail.com",
-      phone: "0789876543",
-      department: "CS",
-      position: "Senior Lecturer",
-      expertise: "Cyber Security, Network Systems",
-      publications: 17,
-      availableTimeSlots: [
-        {
-          date: dayjs().add(2, "day"),
-          slots: [{ startTime: dayjs().hour(10).minute(0), endTime: dayjs().hour(12).minute(0) }],
-        },
-      ],
-    },
-    {
-      id: 4,
-      name: "Dr. Sheril Perera",
-      email: "sheril.p@gmail.com",
-      phone: "0734567890",
-      department: "CS",
-      position: "Lecturer",
-      expertise: "Cyber Security, Artificial Intelligence",
-      publications: 19,
-      availableTimeSlots: [
-        {
-          date: dayjs().add(3, "day"),
-          slots: [{ startTime: dayjs().hour(9).minute(0), endTime: dayjs().hour(12).minute(0) }],
-        },
-      ],
-    },
-  ];
+  const [filteredExaminers, setFilteredExaminers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [openRowId, setOpenRowId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const navigate = useNavigate();
 
-  // Get unique departments for filter
-  const departments = ["All", ...new Set(dummyData.map(examiner => examiner.department))];
+  const fetchExaminers = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_BASE_URL}/examiners`);
+      setExaminers(response.data);
+      setFilteredExaminers(response.data);
+    } catch (err) {
+      console.error('Error fetching examiners:', err);
+      setError('Failed to fetch examiners. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Immediately set data without loading state
-    setExaminers(dummyData);
+    fetchExaminers();
   }, []);
 
-  const handleSearch = (event) => {
-    setSearch(event.target.value);
-  };
+  useEffect(() => {
+    // Filter examiners based on search term
+    if (searchTerm.trim() === '') {
+      setFilteredExaminers(examiners);
+    } else {
+      const filtered = examiners.filter(examiner => 
+        (examiner.name && examiner.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (examiner.email && examiner.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (examiner.department && examiner.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (examiner.position && examiner.position.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (examiner.areas_of_expertise && examiner.areas_of_expertise.some(area => 
+          area.toLowerCase().includes(searchTerm.toLowerCase())
+        ))
+      );
+      setFilteredExaminers(filtered);
+    }
+  }, [searchTerm, examiners]);
 
-  const handleRefresh = () => {
-    // Immediate refresh without loading animation
-    setExaminers(dummyData);
-  };
-
-  const handleExpandClick = (id) => {
-    setExpandedId(expandedId === id ? null : id);
-  };
-
-  const handleDepartmentFilter = (event) => {
-    setDepartmentFilter(event.target.value);
-  };
-
-  // Handle navigation to Add Examiner form
+  // Function to navigate to Add Examiner form
   const handleAddExaminer = () => {
-    navigate("/addExaminer");
+    navigate('/addExaminer');
   };
 
-  // Handle navigation to edit examiner
-  const handleEditExaminer = (id) => {
-    // Prevent row expansion when clicking edit button
-    event.stopPropagation();
-    navigate(`/addExaminer?id=${id}`); // You can pass the examiner ID as a parameter
+  // Function to handle edit examiner
+  const handleEditExaminer = (examinerId) => {
+    navigate(`/editExaminer/${examinerId}`);
   };
 
-  // Filter examiners based on search and department filter
-  const filteredExaminers = examiners.filter(
-    (examiner) => 
-      (departmentFilter === "All" || examiner.department === departmentFilter) &&
-      (examiner.name.toLowerCase().includes(search.toLowerCase()) ||
-       examiner.email.toLowerCase().includes(search.toLowerCase()) ||
-       examiner.department.toLowerCase().includes(search.toLowerCase()) ||
-       examiner.expertise.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Function to handle delete examiner
+  const handleDeleteExaminer = async (examinerId) => {
+    if (confirmDelete === examinerId) {
+      try {
+        await axios.delete(`${API_BASE_URL}/examiners/${examinerId}`);
+        // Refresh the examiner list after deletion
+        fetchExaminers();
+        setConfirmDelete(null);
+      } catch (err) {
+        console.error('Error deleting examiner:', err);
+        setError('Failed to delete examiner. Please try again.');
+      }
+    } else {
+      setConfirmDelete(examinerId);
+      // Auto-reset confirm delete after 3 seconds
+      setTimeout(() => {
+        setConfirmDelete(null);
+      }, 3000);
+    }
+  };
+
+  // Format date for better display
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const options = { year: 'numeric', month: 'short', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString(undefined, options);
+    } catch (error) {
+      return dateString; // Return original string if parsing fails
+    }
+  };
+
+  // Function to generate a consistent pastel color based on department
+  const getDepartmentColor = (department) => {
+    if (!department) return '#e6e6fa'; // default lavender color
+    
+    const colors = {
+      'IT': '#b3e0ff',
+      'SE': '#ffd6cc',
+      'DS': '#d9f2d9',
+      'CS': '#ffe6cc',
+      'Software Engineering': '#ffd6cc',
+      'Data Science': '#d9f2d9',
+      'Computer Science': '#ffe6cc',
+      'Information Technology': '#b3e0ff'
+    };
+    
+    return colors[department] || '#e6e6fa';
+  };
+
+  // Calculate statistics
+  const getStats = () => {
+    if (!examiners || examiners.length === 0) return {
+      totalExaminers: 0,
+      departments: 0,
+      mostCommonExpertise: 'N/A',
+      totalAvailabilitySlots: 0,
+      mostCommonDept: 'N/A'
+    };
+    
+    const departments = {};
+    const expertiseAreas = {};
+    let totalAvailabilitySlots = 0;
+    let mostCommonDept = { name: '', count: 0 };
+    let mostCommonExpertise = { name: '', count: 0 };
+    
+    examiners.forEach(examiner => {
+      // Count departments
+      if (examiner.department) {
+        departments[examiner.department] = (departments[examiner.department] || 0) + 1;
+        
+        // Track most common department
+        if (departments[examiner.department] > mostCommonDept.count) {
+          mostCommonDept = { 
+            name: examiner.department, 
+            count: departments[examiner.department] 
+          };
+        }
+      }
+      
+      // Count expertise areas and find most common
+      examiner.areas_of_expertise?.forEach(area => {
+        expertiseAreas[area] = (expertiseAreas[area] || 0) + 1;
+        
+        if (expertiseAreas[area] > mostCommonExpertise.count) {
+          mostCommonExpertise = {
+            name: area,
+            count: expertiseAreas[area]
+          };
+        }
+      });
+      
+      // Sum up all availability slots
+      totalAvailabilitySlots += examiner.availability?.length || 0;
+    });
+    
+    return {
+      totalExaminers: examiners.length,
+      departments: Object.keys(departments).length,
+      mostCommonExpertise: mostCommonExpertise.name || 'N/A',
+      totalAvailabilitySlots: totalAvailabilitySlots,
+      mostCommonDept: mostCommonDept.name || 'N/A'
+    };
+  };
+
+  const stats = getStats();
+
+  const toggleRow = (id) => {
+    setOpenRowId(openRowId === id ? null : id);
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ mt: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
+        <CircularProgress size={60} thickness={4} />
+        <Typography variant="h6" sx={{ mt: 2, color: '#666' }}>
+          Loading examiner data...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ mt: 6, mx: 'auto', maxWidth: '600px' }}>
+        <Alert 
+          severity="error" 
+          variant="filled"
+          sx={{ borderRadius: 2, boxShadow: 3 }}
+        >
+          {error}
+        </Alert>
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => fetchExaminers()}
+          >
+            Try Again
+          </Button>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ 
-      width: '100vw',  // Use viewport width to ensure full width
-      minHeight: '100vh', // Ensure it takes up at least the full viewport height
-      bgcolor: '#f5f5f5',
-      display: 'flex',
-      justifyContent: 'center',
-      margin: 0,
-      padding: 0,
-      pt: 3,
-      boxSizing: 'border-box'
-    }}>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        {/* Header */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center',
-          mb: 4 
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <School sx={{ fontSize: 40, color: '#3f51b5', mr: 2 }} />
-            <Typography 
-              variant="h3" 
-              sx={{ 
-                fontWeight: "bold", 
-                background: 'linear-gradient(45deg, #3f51b5 30%, #7986cb 90%)',
-                backgroundClip: 'text',
-                color: 'transparent',
-                letterSpacing: '0.5px'
-              }}
-            >
-              Examiner Directory
-            </Typography>
-          </Box>
-        </Box>
+    <Container maxWidth="xl">
+      <Box sx={{ mt: 6, mb: 8 }}>
+        <Typography
+          variant="h3"
+          gutterBottom
+          align="center"
+          sx={{ 
+            fontWeight: 700, 
+            color: '#1976d2',
+            letterSpacing: '0.5px',
+            textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+          }}
+        >
+          Examiner Directory
+        </Typography>
 
-        {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={4}>
-            <Card sx={{ height: '100%', boxShadow: 3 }}>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>Total Examiners</Typography>
-                <Typography variant="h4" component="div">{examiners.length}</Typography>
+        <Divider sx={{ 
+          mb: 5, 
+          width: '100px', 
+          mx: 'auto', 
+          borderColor: '#1976d2', 
+          borderWidth: 2,
+          borderRadius: 1
+        }} />
+
+        {/* Statistics Cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              borderRadius: 2, 
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              height: '100%',
+              background: 'linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%)'
+            }}>
+              <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                <PeopleAltIcon sx={{ fontSize: 40, color: '#1976d2', mb: 1 }} />
+                <Typography variant="h4" fontWeight="bold" color="primary">
+                  {stats.totalExaminers}
+                </Typography>
+                <Typography variant="subtitle1" color="text.secondary">
+                  Total Examiners
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
-            <Card sx={{ height: '100%', boxShadow: 3 }}>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>Departments</Typography>
-                <Typography variant="h4" component="div">{departments.length - 1}</Typography>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              borderRadius: 2, 
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              height: '100%',
+              background: 'linear-gradient(135deg, #c8e6c9 0%, #e8f5e9 100%)'
+            }}>
+              <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                <BusinessCenterIcon sx={{ fontSize: 40, color: '#388e3c', mb: 1 }} />
+                <Typography variant="h4" fontWeight="bold" color="#388e3c">
+                  {stats.departments}
+                </Typography>
+                <Typography variant="subtitle1" color="text.secondary">
+                  Departments
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
-            <Card sx={{ height: '100%', boxShadow: 3 }}>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>Total Availability Slots</Typography>
-                <Typography variant="h4" component="div">
-                  {examiners.reduce((total, examiner) => total + examiner.availableTimeSlots.length, 0)}
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              borderRadius: 2, 
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              height: '100%',
+              background: 'linear-gradient(135deg, #ffecb3 0%, #fff8e1 100%)'
+            }}>
+              <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                <AssignmentIndIcon sx={{ fontSize: 40, color: '#f57c00', mb: 1 }} />
+                <Typography variant="h6" fontWeight="bold" color="#f57c00" sx={{ wordBreak: 'break-word', minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {stats.mostCommonExpertise}
+                </Typography>
+                <Typography variant="subtitle1" color="text.secondary">
+                  Most Common Expertise
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              borderRadius: 2, 
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              height: '100%',
+              background: 'linear-gradient(135deg, #e1bee7 0%, #f3e5f5 100%)'
+            }}>
+              <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                <EventAvailableIcon sx={{ fontSize: 40, color: '#7b1fa2', mb: 1 }} />
+                <Typography variant="h4" fontWeight="bold" color="#7b1fa2">
+                  {stats.totalAvailabilitySlots}
+                </Typography>
+                <Typography variant="subtitle1" color="text.secondary">
+                  Total Availability Slots
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
 
-        {/* Search and Filter bar */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Search Examiner"
-              value={search}
-              onChange={handleSearch}
-              variant="outlined"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6} sx={{ 
-            display: 'flex', 
-            gap: 2, 
-            alignItems: 'center', 
-            justifyContent: { xs: 'flex-start', sm: 'flex-end' } 
-          }}>
-            <FormControl sx={{ minWidth: '150px' }}>
-              <InputLabel id="department-filter-label">Department</InputLabel>
-              <Select
-                labelId="department-filter-label"
-                value={departmentFilter}
-                label="Department"
-                onChange={handleDepartmentFilter}
-              >
-                {departments.map((dept) => (
-                  <MenuItem key={dept} value={dept}>{dept}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            <Tooltip title="Refresh List">
-              <IconButton onClick={handleRefresh} color="primary" sx={{ boxShadow: 1 }}>
-                <Refresh />
-              </IconButton>
-            </Tooltip>
-            
-            <Tooltip title="Add New Examiner">
-              <Button 
-                onClick={handleAddExaminer} // Add onClick handler here
-                variant="contained" 
-                color="primary" 
-                startIcon={<PersonAdd />}
-                sx={{ 
-                  boxShadow: 2,
-                  background: 'linear-gradient(45deg, #3f51b5 30%, #5c6bc0 90%)',
-                }}
-              >
-                Add Examiner
-              </Button>
-            </Tooltip>
-          </Grid>
-        </Grid>
-
-        {/* Results summary */}
+        {/* Add Examiner Button and Search Bar */}
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          mb: 2,
+          mb: 3,
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2
         }}>
-          <Typography variant="subtitle1">
-            Showing {filteredExaminers.length} of {examiners.length} examiners
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Tooltip title="Filter Options">
-              <IconButton size="small">
-                <FilterList />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Display Settings">
-              <IconButton size="small">
-                <DisplaySettings />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleAddExaminer}
+            sx={{
+              borderRadius: 2,
+              padding: '10px 20px',
+              fontWeight: 'bold',
+              background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
+              boxShadow: '0 4px 8px rgba(25, 118, 210, 0.3)',
+              '&:hover': {
+                boxShadow: '0 6px 12px rgba(25, 118, 210, 0.4)',
+              }
+            }}
+          >
+            Add New Examiner
+          </Button>
+          
+          <TextField
+            placeholder="Search examiners..."
+            variant="outlined"
+            fullWidth
+            sx={{ 
+              maxWidth: { sm: '300px', md: '400px' },
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                '&:hover fieldset': {
+                  borderColor: '#1976d2',
+                },
+              }
+            }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="primary" />
+                </InputAdornment>
+              ),
+            }}
+          />
         </Box>
 
-        {/* Table with styling */}
-        <TableContainer 
-          component={Paper} 
+        <Card 
+          elevation={6}
           sx={{ 
-            boxShadow: 3,
-            borderRadius: 2,
+            borderRadius: 4, 
             overflow: 'hidden',
+            border: '1px solid rgba(25, 118, 210, 0.1)',
           }}
         >
-          <Table>
-            <TableHead sx={{ 
-              background: 'linear-gradient(45deg, #3f51b5 30%, #5c6bc0 90%)'
-            }}>
-              <TableRow>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Examiner</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Department</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Position</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Expertise</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Availability</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredExaminers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    <Typography variant="subtitle1" color="textSecondary">
-                      No examiners match your search criteria
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredExaminers.map((examiner) => (
-                  <React.Fragment key={examiner.id}>
-                    <TableRow 
-                      sx={{ 
-                        '&:hover': { 
-                          backgroundColor: 'rgba(63, 81, 181, 0.08)'
-                        },
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s'
-                      }}
-                      onClick={() => handleExpandClick(examiner.id)}
-                    >
-                      <TableCell>
-                        <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
-                            {examiner.name}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            {examiner.email}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={examiner.department} 
-                          size="small"
-                          sx={{ 
-                            backgroundColor: stringToColor(examiner.department),
-                            color: 'white',
-                            fontWeight: 'medium'
+          <CardContent sx={{ p: 0 }}>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ 
+                    background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
+                  }}>
+                    <TableCell sx={{ 
+                      color: 'black', 
+                      fontWeight: 'bold', 
+                      backgroundColor: '#e3f2fd',
+                      textAlign: 'center'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <PersonIcon sx={{ mr: 1, color: '#1976d2' }} />
+                        <Typography variant="subtitle1" fontWeight="bold">Name</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ 
+                      color: 'black', 
+                      fontWeight: 'bold', 
+                      backgroundColor: '#e3f2fd',
+                      textAlign: 'center'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <EmailIcon sx={{ mr: 1, color: '#1976d2' }} />
+                        <Typography variant="subtitle1" fontWeight="bold">Email</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ 
+                      color: 'black', 
+                      fontWeight: 'bold', 
+                      backgroundColor: '#e3f2fd',
+                      textAlign: 'center'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <PhoneIcon sx={{ mr: 1, color: '#1976d2' }} />
+                        <Typography variant="subtitle1" fontWeight="bold">Phone Number</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ 
+                      color: 'black', 
+                      fontWeight: 'bold', 
+                      backgroundColor: '#e3f2fd',
+                      textAlign: 'center'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <SchoolIcon sx={{ mr: 1, color: '#1976d2' }} />
+                        <Typography variant="subtitle1" fontWeight="bold">Department</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ 
+                      color: 'black', 
+                      fontWeight: 'bold', 
+                      backgroundColor: '#e3f2fd',
+                      textAlign: 'center'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <WorkIcon sx={{ mr: 1, color: '#1976d2' }} />
+                        <Typography variant="subtitle1" fontWeight="bold">Position</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ 
+                      color: 'black', 
+                      fontWeight: 'bold', 
+                      backgroundColor: '#e3f2fd',
+                      textAlign: 'center'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <PsychologyIcon sx={{ mr: 1, color: '#1976d2' }} />
+                        <Typography variant="subtitle1" fontWeight="bold">Expertise</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ 
+                      color: 'black', 
+                      fontWeight: 'bold', 
+                      backgroundColor: '#e3f2fd',
+                      textAlign: 'center'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <EventAvailableIcon sx={{ mr: 1, color: '#1976d2' }} />
+                        <Typography variant="subtitle1" fontWeight="bold">Availability</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ 
+                      color: 'black', 
+                      fontWeight: 'bold', 
+                      backgroundColor: '#e3f2fd',
+                      textAlign: 'center'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Typography variant="subtitle1" fontWeight="bold">Actions</Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredExaminers.length > 0 ? (
+                    filteredExaminers.map((examiner, index) => (
+                      <React.Fragment key={examiner._id || index}>
+                        <TableRow
+                          sx={{
+                            backgroundColor: index % 2 === 0 ? '#f9f9f9' : '#ffffff',
+                            '&:hover': {
+                              backgroundColor: '#e8f4fd',
+                              boxShadow: 'inset 0 0 0 1px rgba(25, 118, 210, 0.1)',
+                              transition: 'all 0.2s'
+                            },
                           }}
-                        />
-                      </TableCell>
-                      <TableCell>{examiner.position}</TableCell>
-                      <TableCell>
-                        <Box sx={{ maxWidth: '250px' }}>
-                          {examiner.expertise.split(',').map((exp, i) => (
-                            <Chip
-                              key={i}
-                              label={exp.trim()}
+                        >
+                          <TableCell>
+                            <Typography fontWeight="medium">{examiner.name}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Tooltip title="Send email">
+                              <Typography 
+                                component="a" 
+                                href={`mailto:${examiner.email}`}
+                                sx={{ 
+                                  color: '#1976d2', 
+                                  textDecoration: 'none',
+                                  '&:hover': { textDecoration: 'underline' }
+                                }}
+                              >
+                                {examiner.email}
+                              </Typography>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>{examiner.phone_number}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={examiner.department} 
                               size="small"
-                              variant="outlined"
-                              sx={{ mr: 0.5, mb: 0.5 }}
+                              sx={{ 
+                                backgroundColor: getDepartmentColor(examiner.department),
+                                fontWeight: 'medium'
+                              }} 
                             />
-                          ))}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <CalendarMonth sx={{ fontSize: '1rem', mr: 1, color: '#3f51b5' }} />
-                          <Typography variant="body2">
-                            {examiner.availableTimeSlots.length} available slots
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <Tooltip title="Edit Examiner">
-                            <IconButton 
-                              size="small" 
-                              color="primary" 
-                              sx={{ boxShadow: 1 }}
-                              onClick={(event) => {
-                                event.stopPropagation(); // Prevent row expansion
-                                handleEditExaminer(examiner.id);
-                              }}
-                            >
-                              <Edit />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete Examiner">
-                            <IconButton 
-                              size="small" 
-                              color="error" 
-                              sx={{ boxShadow: 1 }}
-                              onClick={(event) => {
-                                event.stopPropagation(); // Prevent row expansion
-                                // Add delete functionality here
-                              }}
-                            >
-                              <Delete />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title={expandedId === examiner.id ? "Hide Details" : "Show Details"}>
-                            <IconButton 
-                              size="small" 
-                              color="default"
-                              sx={{ boxShadow: 1 }}
-                            >
-                              {expandedId === examiner.id ? <ExpandLess /> : <ExpandMore />}
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                    
-                    {/* Expanded details row */}
-                    {expandedId === examiner.id && (
-                      <TableRow sx={{ backgroundColor: 'rgba(63, 81, 181, 0.04)' }}>
-                        <TableCell colSpan={6} sx={{ p: 3 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                            <Typography variant="h6" sx={{ mb: 2, color: '#3f51b5' }}>
-                              Availability Details
-                            </Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              {examiner.availableTimeSlots.map((slot, index) => (
-                                <Card key={index} variant="outlined" sx={{ mb: 1 }}>
-                                  <CardContent sx={{ p: 2 }}>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                      {dayjs(slot.date).format("dddd, MMMM D, YYYY")}
-                                    </Typography>
-                                    <Box sx={{ mt: 1 }}>
-                                      {slot.slots.map((time, idx) => (
-                                        <Chip
-                                          key={idx}
-                                          label={`${dayjs(time.startTime).format("h:mm A")} - ${dayjs(time.endTime).format("h:mm A")}`}
-                                          variant="outlined"
-                                          color="primary"
-                                          sx={{ mr: 1, mb: 1 }}
-                                        />
-                                      ))}
-                                    </Box>
-                                  </CardContent>
-                                </Card>
+                          </TableCell>
+                          <TableCell>{examiner.position}</TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {examiner.areas_of_expertise?.map((area, i) => (
+                                <Chip 
+                                  key={i} 
+                                  label={area} 
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ margin: '2px' }}
+                                />
                               ))}
                             </Box>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Container>
-    </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Typography variant="body2" sx={{ mr: 1 }}>
+                                {examiner.availability?.length || 0} slots
+                              </Typography>
+                              <IconButton
+                                aria-label="expand row"
+                                size="small"
+                                onClick={() => toggleRow(examiner._id || index)}
+                              >
+                                {openRowId === (examiner._id || index) ? 
+                                  <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                              </IconButton>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                              <Tooltip title="Edit examiner">
+                                <IconButton 
+                                  color="primary" 
+                                  onClick={() => handleEditExaminer(examiner._id)}
+                                  sx={{ mr: 1 }}
+                                >
+                                  <EditIcon />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title={confirmDelete === examiner._id ? "Click again to confirm" : "Delete examiner"}>
+                                <IconButton 
+                                  color={confirmDelete === examiner._id ? "error" : "default"}
+                                  onClick={() => handleDeleteExaminer(examiner._id)}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={9}>
+                            <Collapse in={openRowId === (examiner._id || index)} timeout="auto" unmountOnExit>
+                              <Box sx={{ margin: 2, backgroundColor: '#f5f5f5', p: 2, borderRadius: 2 }}>
+                                <Typography variant="h6" gutterBottom component="div" sx={{ color: '#1976d2' }}>
+                                  Availability Schedule
+                                </Typography>
+                                <Divider sx={{ mb: 2 }} />
+                                {examiner.availability && examiner.availability.length > 0 ? (
+                                  <Stack spacing={1}>
+                                    {examiner.availability.map((slot, i) => (
+                                      <Card key={i} variant="outlined" sx={{ p: 1 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                          <CalendarTodayIcon sx={{ mr: 2, color: '#1976d2' }} />
+                                          <Box>
+                                            <Typography variant="subtitle2" fontWeight="bold">
+                                              {formatDate(slot.date)}
+                                            </Typography>
+                                            <Typography variant="body2">
+                                              {slot.start_time} - {slot.end_time}
+                                            </Typography>
+                                          </Box>
+                                        </Box>
+                                      </Card>
+                                    ))}
+                                  </Stack>
+                                ) : (
+                                  <Typography variant="body2" color="text.secondary">
+                                    No availability slots found.
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Collapse>
+                          </TableCell>
+                        </TableRow>
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                        <Typography variant="subtitle1" color="text.secondary">
+                          No examiners found matching your search criteria.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Box>
+    </Container>
   );
-}
+};
+
+export default ExaminerList;
