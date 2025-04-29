@@ -73,9 +73,8 @@ const UpdateVenueForm = () => {
           venue_name: venueData.venue_name,
           room_type: venueData.room_type,
           location: venueData.location,
-          capacity: parseInt(venueData.capacity), // 🔥 Correctly send capacity as number
+          capacity: parseInt(venueData.capacity),
           availability: venueData.availability,
-          "Time Slot": venueData["Time Slot"],
           organizer_email: venueData.organizer_email,
           available_facilities: venueData.available_facilities
         },
@@ -160,21 +159,7 @@ const UpdateVenueForm = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Time Slot"
-              name="Time Slot"
-              type="time"
-              fullWidth
-              required
-              value={venueData["Time Slot"]}
-              onChange={handleChange}
-              InputLabelProps={{
-                shrink: true
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12}>
             <TextField
               label="Organizer Email"
               name="organizer_email"
