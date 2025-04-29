@@ -34,6 +34,12 @@ import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import NumbersIcon from '@mui/icons-material/Numbers';
+import MeetingRoomOutlinedIcon from '@mui/icons-material/MeetingRoomOutlined';
+import CategoryIcon from '@mui/icons-material/Category';
+import EmailIcon from '@mui/icons-material/Email';
+import HandymanIcon from '@mui/icons-material/Handyman';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 const VenueList = () => {
   const [venues, setVenues] = useState([]);
@@ -117,7 +123,6 @@ const VenueList = () => {
     navigate(`/UpdateVenueForm/${venueId}`);
   };
   
-
   const handleDeleteVenue = (venueId) => {
     // Confirm before deleting
     if (window.confirm('Are you sure you want to delete this venue?')) {
@@ -144,6 +149,25 @@ const VenueList = () => {
       </Box>
     );
   }
+
+  // Custom table header component with icons
+  const TableHeaderCell = ({ icon, label }) => (
+    <TableCell 
+      sx={{ 
+        fontWeight: 'bold', 
+        bgcolor: '#f5f5f5',
+        transition: 'background-color 0.2s',
+        '&:hover': { bgcolor: '#e0e0e0' }
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        {icon}
+        <Typography variant="subtitle2" sx={{ ml: 1, fontWeight: 'bold' }}>
+          {label}
+        </Typography>
+      </Box>
+    </TableCell>
+  );
 
   return (
     <Container maxWidth="xl" sx={{ mt: 8, mb: 6 }}>
@@ -277,7 +301,7 @@ const VenueList = () => {
         )}
       </Paper>
 
-      {/* Enhanced Table */}
+      {/* Enhanced Table with Icons in Headers */}
       <Paper elevation={5} sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: 3 }}>
         <Box sx={{ p: 2, bgcolor: theme.palette.primary.main, color: 'white' }}>
           <Typography variant="h5" fontWeight="medium">
@@ -288,16 +312,42 @@ const VenueList = () => {
           <Table stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>ID</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Venue Name</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Room Type</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Location</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Capacity</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Availability</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Time Slot</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Organizer Email</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Facilities</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5' }}>Actions</TableCell>
+                <TableHeaderCell 
+                  icon={<NumbersIcon fontSize="small" color="primary" />} 
+                  label="ID" 
+                />
+                <TableHeaderCell 
+                  icon={<MeetingRoomOutlinedIcon fontSize="small" color="primary" />} 
+                  label="Venue Name" 
+                />
+                <TableHeaderCell 
+                  icon={<CategoryIcon fontSize="small" color="primary" />} 
+                  label="Room Type" 
+                />
+                <TableHeaderCell 
+                  icon={<LocationOnIcon fontSize="small" color="primary" />} 
+                  label="Location" 
+                />
+                <TableHeaderCell 
+                  icon={<GroupIcon fontSize="small" color="primary" />} 
+                  label="Capacity" 
+                />
+                <TableHeaderCell 
+                  icon={<EventAvailableIcon fontSize="small" color="primary" />} 
+                  label="Availability" 
+                />
+                <TableHeaderCell 
+                  icon={<EmailIcon fontSize="small" color="primary" />} 
+                  label="Organizer Email" 
+                />
+                <TableHeaderCell 
+                  icon={<HandymanIcon fontSize="small" color="primary" />} 
+                  label="Facilities" 
+                />
+                <TableHeaderCell 
+                  icon={<SettingsIcon fontSize="small" color="primary" />} 
+                  label="Actions" 
+                />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -330,7 +380,6 @@ const VenueList = () => {
                       variant={venue.availability === 'Available' ? 'filled' : 'outlined'}
                     />
                   </TableCell>
-                  <TableCell>{venue["Time Slot"] || '-'}</TableCell>
                   <TableCell>
                     <Tooltip title="Send email" arrow>
                       <Typography 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import * as yup from 'yup';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -42,7 +43,6 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import EmailIcon from '@mui/icons-material/Email';
 import EventSeatIcon from '@mui/icons-material/EventSeat';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
@@ -98,20 +98,18 @@ const validationSchema = yup.object({
     .required('Email is required'),
   availability: yup
     .string()
-    .required('Availability status is required'),
-  'Time Slot': yup
-    .string()
-    .required('Time slot is required')
+    .required('Availability status is required')
 });
 
 const AddVenueForm = () => {
+  const navigate = useNavigate();
+  
   const [venueData, setVenueData] = useState({
     venue_name: '',
     room_type: '',
     location: '',
     capacity: '',
     availability: '',
-    'Time Slot': '',
     organizer_email: '',
     available_facilities: []
   });
@@ -119,6 +117,7 @@ const AddVenueForm = () => {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isFormValid, setIsFormValid] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -136,7 +135,7 @@ const AddVenueForm = () => {
 
   // Calculate form completion percentage
   const calculateCompletion = () => {
-    const requiredFields = ['venue_name', 'location', 'capacity', 'organizer_email', 'room_type', 'availability', 'Time Slot'];
+    const requiredFields = ['venue_name', 'location', 'capacity', 'organizer_email', 'room_type', 'availability'];
     const filledFields = requiredFields.filter(field => {
       return venueData[field] && venueData[field].toString().trim() !== '';
     });
@@ -206,6 +205,11 @@ const AddVenueForm = () => {
 
   const handleCloseSnackbar = () => {
     setSnackbar({...snackbar, open: false});
+    
+    // If we were in the process of redirecting, complete the navigation
+    if (isRedirecting) {
+      navigate('/VenueList');
+    }
   };
 
   const handleContinueToReview = async (e) => {
@@ -254,22 +258,32 @@ const AddVenueForm = () => {
       
       setSnackbar({
         open: true,
-        message: 'Venue added successfully!',
+        message: 'Venue added successfully! Redirecting to Venue List...',
         severity: 'success'
       });
       
+      // Reset form data
       setVenueData({
         venue_name: '',
         room_type: '',
         location: '',
         capacity: '',
         availability: '',
-        'Time Slot': '',
         organizer_email: '',
         available_facilities: []
       });
+      
       setActiveStep(0);
       setTouched({});
+      
+      // Set redirecting flag to true
+      setIsRedirecting(true);
+      
+      // Navigate after a short delay to allow the user to see the success message
+      setTimeout(() => {
+        navigate('/VenueList');
+      }, 2000);
+      
     } catch (err) {
       console.error('Error adding venue:', err);
       setSnackbar({
@@ -330,12 +344,6 @@ const AddVenueForm = () => {
                   </Box>
                 ) : venueData.availability}
               </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
-                Time Slot
-              </TableCell>
-              <TableCell>{venueData['Time Slot']}</TableCell>
             </TableRow>
             <TableRow>
               <TableCell component="th" sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
@@ -602,7 +610,7 @@ const AddVenueForm = () => {
                     <Typography variant="h6" color="primary" sx={{ fontWeight: 500 }}>
                       Availability & Features
                     </Typography>
-                    <Tooltip title="Information about when and what facilities are available">
+                    <Tooltip title="Information about availability and facilities">
                       <IconButton size="small">
                         <InfoOutlinedIcon fontSize="small" color="primary" />
                       </IconButton>
@@ -611,7 +619,7 @@ const AddVenueForm = () => {
                   <Divider sx={{ mb: 3 }} />
                   
                   <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12}>
                       <FormControl 
                         fullWidth 
                         variant="outlined"
@@ -632,37 +640,18 @@ const AddVenueForm = () => {
                               Available
                             </Box>
                           </MenuItem>
+                          <MenuItem value="Maintenance">
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <InfoOutlinedIcon sx={{ color: 'warning.main', mr: 1 }} />
+                              Maintenance
+                            </Box>
+                          </MenuItem>
                           <MenuItem value="Not Available">Not Available</MenuItem>
                         </Select>
                         {touched.availability && errors.availability && (
                           <FormHelperText error>{errors.availability}</FormHelperText>
                         )}
                       </FormControl>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="Time Slot"
-                        name="Time Slot"
-                        type="time"
-                        fullWidth
-                        required
-                        value={venueData['Time Slot']}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={Boolean(touched['Time Slot'] && errors['Time Slot'])}
-                        helperText={touched['Time Slot'] && errors['Time Slot']}
-                        InputLabelProps={{
-                          shrink: true
-                        }}
-                        InputProps={{ 
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <AccessTimeIcon color="primary" fontSize="small" />
-                            </InputAdornment>
-                          ),
-                          sx: { borderRadius: 1.5 } 
-                        }}
-                      />
                     </Grid>
                     
                     <Grid item xs={12}>
@@ -734,7 +723,7 @@ const AddVenueForm = () => {
       
       <Snackbar 
         open={snackbar.open} 
-        autoHideDuration={6000} 
+        autoHideDuration={3000} 
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
