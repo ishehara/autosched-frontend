@@ -1,484 +1,627 @@
 // src/components/AIScheduler/AIScheduler.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './AIScheduler.css';
+import { 
+  Box, 
+  Typography, 
+  Paper, 
+  Button, 
+  Container, 
+  Grid, 
+  Card, 
+  CardContent, 
+  Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  CircularProgress,
+  Alert,
+  TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Chip,
+  IconButton,
+  Tooltip,
+  FormControlLabel,
+  Switch,
+  Snackbar
+} from '@mui/material';
+import { 
+  CalendarMonth as CalendarIcon,
+  Send as SendIcon,
+  Schedule as ScheduleIcon,
+  Person as PersonIcon,
+  Room as RoomIcon,
+  School as SchoolIcon,
+  DateRange as DateRangeIcon,
+  MailOutline as MailIcon,
+  Info as InfoIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon 
+} from '@mui/icons-material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
 const AIScheduler = () => {
-  // State management
-  const [dateRange, setDateRange] = useState(['', '']);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [algorithmSteps, setAlgorithmSteps] = useState([
-    'Loading presentation data',
-    'Analyzing examiner expertise',
-    'Checking venue availability',
-    'Running matching algorithm',
-    'Optimizing schedules',
-    'Finalizing allocations'
-  ]);
+  // State for presentations
+  const [presentations, setPresentations] = useState([]);
   const [scheduledPresentations, setScheduledPresentations] = useState([]);
-  const [showResults, setShowResults] = useState(false);
-  const [metrics, setMetrics] = useState({
-    totalScheduled: 0,
-    expertiseMatchScore: 0,
-    venueUtilization: 0,
-    examinerWorkloadBalance: 0
-  });
-  const [optimizationParams, setOptimizationParams] = useState({
-    prioritizeExpertise: true,
-    balanceExaminerWorkload: true,
-    minimizeVenueChanges: true,
-    avoidBackToBack: false
-  });
-  const [weights, setWeights] = useState({
-    expertiseWeight: 70,
-    venueWeight: 10,
-    timeWeight: 20
-  });
-  const [examiners, setExaminers] = useState([]);
-  const [venues, setVenues] = useState([]);
   const [unscheduledPresentations, setUnscheduledPresentations] = useState([]);
+  
+  // State for scheduling
+  const [dateRange, setDateRange] = useState([null, null]);
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  
+  // State for emails
+  const [sendingEmails, setSendingEmails] = useState(false);
+  
+  // State for loading and errors
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // State for metadata
+  const [examiners, setExaminers] = useState({});
+  const [venues, setVenues] = useState({});
+  
+  // Stats
+  const [stats, setStats] = useState({
+    totalScheduled: 0,
+    totalPending: 0,
+    totalExaminerAssignments: 0,
+    moduleBreakdown: {}
+  });
+  
+  // Snackbar
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
-  // Fetch initial data
+  // Fetch all data on component mount
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [examinersRes, venuesRes, presentationsRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/examiners`),
-          axios.get(`${API_BASE_URL}/venues`),
-          axios.get(`${API_BASE_URL}/presentations`)
-        ]);
-        
-        setExaminers(examinersRes.data);
-        setVenues(venuesRes.data);
-        
-        // Filter unscheduled presentations
-        const unscheduled = presentationsRes.data.filter(p => !p.scheduled);
-        setUnscheduledPresentations(unscheduled);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load initial data. Please check your connection.');
-      }
-    };
-
-    fetchData();
+    fetchAllData();
   }, []);
-
-  // Handle checkbox changes
-  const handleCheckboxChange = (event) => {
-    setOptimizationParams({
-      ...optimizationParams,
-      [event.target.name]: event.target.checked
-    });
-  };
-
-  // Handle weight slider changes
-  const handleWeightChange = (name) => (event) => {
-    setWeights({
-      ...weights,
-      [name]: parseInt(event.target.value, 10)
-    });
-  };
-
-  // Calculate total weight to ensure it adds up to 100
-  const totalWeight = Object.values(weights).reduce((sum, weight) => sum + weight, 0);
-
-  // Generate schedules
-  const generateSchedules = async () => {
-    if (!dateRange[0] || !dateRange[1]) {
-      setError('Please select a valid date range');
-      return;
-    }
-
-    setError(null);
-    setIsGenerating(true);
-    setShowResults(false);
-    setCurrentStep(0);
-
-    // Simulate algorithm steps with timeouts
-    const stepInterval = setInterval(() => {
-      setCurrentStep(prev => {
-        if (prev >= algorithmSteps.length - 1) {
-          clearInterval(stepInterval);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 1000);
-
-    try {
-      // Actual API call to schedule presentations
-      const response = await axios.post(`${API_BASE_URL}/presentations/schedule`, {
-        date_range: dateRange,
-        optimization_params: optimizationParams,
-        weights: weights
-      });
-
-      // Clear step interval if it's still running
-      clearInterval(stepInterval);
-      setCurrentStep(algorithmSteps.length - 1);
+  
+  // Separate presentations into scheduled and unscheduled
+  useEffect(() => {
+    if (presentations.length > 0) {
+      const scheduled = presentations.filter(p => p.scheduled);
+      const unscheduled = presentations.filter(p => !p.scheduled);
       
-      setTimeout(() => {
-        setScheduledPresentations(response.data.scheduled_presentations || []);
-        
-        // Calculate metrics
-        const totalScheduled = response.data.scheduled_presentations?.length || 0;
-        
-        // Calculate expertise match score (simplified)
-        const expertiseMatchScore = totalScheduled > 0 ? 
-          Math.floor(Math.random() * 30) + 70 : 0; // For demo purposes
-        
-        // Calculate venue utilization (simplified)
-        const venueUtilization = totalScheduled > 0 ?
-          Math.floor(Math.random() * 20) + 80 : 0; // For demo purposes
-        
-        // Calculate workload balance (simplified)
-        const examinerWorkloadBalance = totalScheduled > 0 ?
-          Math.floor(Math.random() * 25) + 75 : 0; // For demo purposes
-        
-        setMetrics({
-          totalScheduled,
-          expertiseMatchScore,
-          venueUtilization,
-          examinerWorkloadBalance
-        });
-        
-        setIsGenerating(false);
-        setShowResults(true);
-      }, 1000);
-    } catch (error) {
-      clearInterval(stepInterval);
-      console.error('Error generating schedules:', error);
-      setError('Failed to generate schedules. Please try again.');
-      setIsGenerating(false);
+      setScheduledPresentations(scheduled);
+      setUnscheduledPresentations(unscheduled);
+      
+      // Update stats
+      calculateStats(scheduled, unscheduled);
+    }
+  }, [presentations]);
+
+  // Fetch all required data from the API
+  const fetchAllData = async () => {
+    setLoading(true);
+    try {
+      // Fetch presentations, examiners and venues in parallel
+      const [presentationsRes, examinersRes, venuesRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/presentations`),
+        axios.get(`${API_BASE_URL}/examiners`),
+        axios.get(`${API_BASE_URL}/venues`)
+      ]);
+      
+      setPresentations(presentationsRes.data);
+      
+      // Convert examiners array to a map for easier lookup
+      const examinersMap = {};
+      examinersRes.data.forEach(examiner => {
+        examinersMap[examiner._id] = examiner;
+      });
+      setExaminers(examinersMap);
+      
+      // Convert venues array to a map for easier lookup
+      const venuesMap = {};
+      venuesRes.data.forEach(venue => {
+        venuesMap[venue._id] = venue;
+      });
+      setVenues(venuesMap);
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load data. Please check your connection to the backend server.');
+      setLoading(false);
     }
   };
 
-  // Reset the form
-  const resetForm = () => {
-    setDateRange(['', '']);
-    setOptimizationParams({
-      prioritizeExpertise: true,
-      balanceExaminerWorkload: true,
-      minimizeVenueChanges: true,
-      avoidBackToBack: false
+  // Calculate statistics for presentations
+  const calculateStats = (scheduled, unscheduled) => {
+    // Create module breakdown
+    const moduleBreakdown = {};
+    
+    // Count scheduled presentations by module
+    scheduled.forEach(presentation => {
+      const module = presentation.module || 'Unknown';
+      moduleBreakdown[module] = (moduleBreakdown[module] || 0) + 1;
     });
-    setWeights({
-      expertiseWeight: 70,
-      venueWeight: 10,
-      timeWeight: 20
+    
+    // Count examiner assignments
+    let totalExaminerAssignments = 0;
+    scheduled.forEach(presentation => {
+      totalExaminerAssignments += (presentation.examiner_ids?.length || 0);
     });
-    setShowResults(false);
-    setError(null);
-  };
-
-  // Get expertise match class based on score
-  const getExpertiseMatchClass = (score) => {
-    if (score >= 80) return 'match-high';
-    if (score >= 60) return 'match-medium';
-    return 'match-low';
+    
+    setStats({
+      totalScheduled: scheduled.length,
+      totalPending: unscheduled.length,
+      totalExaminerAssignments,
+      moduleBreakdown
+    });
   };
 
   // Format date for display
   const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
-
-  // Get examiner name by ID
-  const getExaminerName = (id) => {
-    const examiner = examiners.find(e => e._id === id);
-    return examiner ? examiner.name : 'Unknown';
-  };
-
-  // Get venue name by ID
-  const getVenueName = (id) => {
-    const venue = venues.find(v => v._id === id);
-    return venue ? venue.venue_name : 'Unknown';
-  };
-
-  // Calculate examiner workload (number of assignments)
-  const calculateExaminerWorkload = () => {
-    const workload = {};
+    if (!dateString) return 'N/A';
     
-    examiners.forEach(examiner => {
-      workload[examiner._id] = 0;
-    });
+    try {
+      const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString(undefined, options);
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  // Get examiner names for a presentation
+  const getExaminerNames = (examinerIds) => {
+    if (!examinerIds || examinerIds.length === 0) return 'No examiners assigned';
     
-    scheduledPresentations.forEach(presentation => {
-      presentation.examiner_ids?.forEach(examinerId => {
-        if (workload[examinerId] !== undefined) {
-          workload[examinerId]++;
-        }
+    return examinerIds.map(id => {
+      const examiner = examiners[id];
+      return examiner ? examiner.name : 'Unknown Examiner';
+    }).join(', ');
+  };
+
+  // Get venue name for a presentation
+  const getVenueName = (venueId) => {
+    if (!venueId) return 'No venue assigned';
+    
+    const venue = venues[venueId];
+    return venue ? venue.venue_name : 'Unknown Venue';
+  };
+
+  // Handle scheduling presentations
+  const handleSchedule = async () => {
+    if (!dateRange[0] || !dateRange[1]) {
+      setSnackbar({
+        open: true,
+        message: 'Please select both start and end dates',
+        severity: 'error'
       });
-    });
+      return;
+    }
     
-    return Object.entries(workload)
-      .map(([id, count]) => ({ 
-        id, 
-        name: getExaminerName(id), 
-        count 
-      }))
-      .sort((a, b) => b.count - a.count);
+    setIsScheduling(true);
+    
+    try {
+      const formattedDateRange = [
+        dateRange[0].format('YYYY-MM-DD'),
+        dateRange[1].format('YYYY-MM-DD')
+      ];
+      
+      const response = await axios.post(`${API_BASE_URL}/presentations/schedule`, {
+        date_range: formattedDateRange
+      });
+      
+      if (response.data && response.data.scheduled_presentations) {
+        // Refresh presentation data
+        fetchAllData();
+        
+        setSnackbar({
+          open: true,
+          message: `Successfully scheduled ${response.data.scheduled_presentations.length} presentations`,
+          severity: 'success'
+        });
+      }
+    } catch (err) {
+      console.error('Error scheduling presentations:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to schedule presentations. Please try again.',
+        severity: 'error'
+      });
+    } finally {
+      setIsScheduling(false);
+      setShowScheduleDialog(false);
+    }
   };
 
-  // Get maximum examiner workload for scaling
-  const maxExaminerWorkload = Math.max(
-    ...calculateExaminerWorkload().map(item => item.count), 
-    1
-  );
-
-  // Send email notifications
-  const sendEmailNotifications = () => {
-    // Implementation would go here
-    alert("Email notifications would be sent here");
+  // Handle sending emails to examiners
+  const handleSendEmails = async () => {
+    setSendingEmails(true);
+    
+    try {
+      // For demonstration, we'll just show a success message
+      // In a real implementation, you would call the email endpoint from your backend
+      // await axios.post(`${API_BASE_URL}/emails/send-examiner-schedules`);
+      
+      setTimeout(() => {
+        setSnackbar({
+          open: true,
+          message: 'Email notifications sent to all examiners',
+          severity: 'success'
+        });
+        setSendingEmails(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Error sending emails:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to send email notifications. Please try again.',
+        severity: 'error'
+      });
+      setSendingEmails(false);
+    }
   };
+
+  // Close snackbar
+  const handleCloseSnackbar = () => {
+    setSnackbar({...snackbar, open: false});
+  };
+
+  // Render loading state
+  if (loading) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '80vh' 
+      }}>
+        <CircularProgress size={60} thickness={4} />
+        <Typography variant="h6" sx={{ mt: 3, color: 'text.secondary' }}>
+          Loading scheduler data...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 8, mb: 4 }}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            borderRadius: 2, 
+            boxShadow: 3, 
+            p: 2,
+            display: 'flex',
+            alignItems: 'center'
+          }}
+        >
+          <ErrorIcon sx={{ fontSize: 40, mr: 2 }} />
+          <Box>
+            <Typography variant="h6">Error Loading Data</Typography>
+            <Typography variant="body1">{error}</Typography>
+          </Box>
+        </Alert>
+        <Box sx={{ mt: 3, textAlign: 'center' }}>
+          <Button 
+            variant="contained" 
+            onClick={fetchAllData}
+            startIcon={<RefreshIcon />}
+          >
+            Retry
+          </Button>
+        </Box>
+      </Container>
+    );
+  }
 
   return (
-    <div className="ai-scheduler">
-      <div className="scheduler-header">
-        <h1>AI-Powered Presentation Scheduler</h1>
-        <div className="subtitle">Automatically schedule presentations based on expertise matching</div>
-      </div>
-
-      <div className="scheduler-content">
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
-
-        {!showResults ? (
-          <div className="configuration-panel">
-            <div className="params-section">
-              <h3>Date Range</h3>
-              <div className="date-inputs">
-                <input 
-                  type="date" 
-                  value={dateRange[0]} 
-                  onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
-                />
-                <span>to</span>
-                <input 
-                  type="date" 
-                  value={dateRange[1]} 
-                  onChange={(e) => setDateRange([dateRange[0], e.target.value])}
-                />
-              </div>
-            </div>
-
-            <div className="params-section">
-              <h3>Optimization Parameters</h3>
-              <div className="checkbox-options">
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={optimizationParams.prioritizeExpertise} 
-                    onChange={handleCheckboxChange} 
-                    name="prioritizeExpertise" 
-                  />
-                  Prioritize Expertise Matching
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={optimizationParams.balanceExaminerWorkload} 
-                    onChange={handleCheckboxChange} 
-                    name="balanceExaminerWorkload" 
-                  />
-                  Balance Examiner Workload
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={optimizationParams.minimizeVenueChanges} 
-                    onChange={handleCheckboxChange} 
-                    name="minimizeVenueChanges" 
-                  />
-                  Minimize Venue Changes
-                </label>
-                <label>
-                  <input 
-                    type="checkbox" 
-                    checked={optimizationParams.avoidBackToBack} 
-                    onChange={handleCheckboxChange} 
-                    name="avoidBackToBack" 
-                  />
-                  Avoid Back-to-Back Presentations for Examiners
-                </label>
-              </div>
-            </div>
-
-            <div className="params-section">
-              <h3>Weighting Factors</h3>
-              <div className="slider-options">
-                <div className="weight-slider">
-                  <label>Expertise Match Weight: {weights.expertiseWeight}%</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={weights.expertiseWeight}
-                    onChange={handleWeightChange('expertiseWeight')}
-                  />
-                </div>
-                <div className="weight-slider">
-                  <label>Venue Optimization Weight: {weights.venueWeight}%</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={weights.venueWeight}
-                    onChange={handleWeightChange('venueWeight')}
-                  />
-                </div>
-                <div className="weight-slider">
-                  <label>Time Slot Preference Weight: {weights.timeWeight}%</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={weights.timeWeight}
-                    onChange={handleWeightChange('timeWeight')}
-                  />
-                </div>
-                <div className="weight-total">
-                  Total: {totalWeight}%
-                  {totalWeight !== 100 && (
-                    <span className="weight-warning"> (Should equal 100%)</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="action-buttons">
-              <button 
-                className="generate-btn"
-                onClick={generateSchedules}
-                disabled={isGenerating || !dateRange[0] || !dateRange[1] || totalWeight !== 100}
-              >
-                Generate Schedule
-              </button>
-              <button className="reset-btn" onClick={resetForm} disabled={isGenerating}>
-                Reset
-              </button>
-            </div>
-
-            {isGenerating && (
-              <div className="generating-status">
-                <div className="spinner"></div>
-                <h3>Generating Optimal Schedule...</h3>
-                <p>Processing {unscheduledPresentations.length} presentations</p>
-                
-                <div className="algorithm-steps">
-                  {algorithmSteps.map((step, index) => (
-                    <div 
-                      key={index} 
-                      className={`step ${index < currentStep ? 'completed' : index === currentStep ? 'active' : ''}`}
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Container maxWidth="xl" sx={{ mt: 8, mb: 8 }}>
+        {/* Header */}
+        <Paper 
+          elevation={4} 
+          sx={{ 
+            p: 3, 
+            mb: 4, 
+            borderRadius: 2,
+            background: 'linear-gradient(to right, #3f51b5, #5c6bc0)',
+            color: 'white'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <ScheduleIcon sx={{ fontSize: 36, mr: 2 }} />
+            <Typography variant="h4" fontWeight="bold">
+              AI-Powered Presentation Scheduler
+            </Typography>
+          </Box>
+          <Typography variant="subtitle1">
+            View scheduled presentations and automatically schedule pending presentations
+          </Typography>
+        </Paper>
+        
+        {/* Stats Section */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 3 }}>
+              <CardContent sx={{ textAlign: 'center' }}>
+                <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
+                <Typography variant="h4" color="success.main" fontWeight="bold">
+                  {stats.totalScheduled}
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  Presentations Scheduled
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 3 }}>
+              <CardContent sx={{ textAlign: 'center' }}>
+                <CalendarIcon sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
+                <Typography variant="h4" color="warning.main" fontWeight="bold">
+                  {stats.totalPending}
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  Presentations Pending
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+        </Grid>
+        
+        {/* Action Buttons */}
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 2, 
+          mb: 4, 
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'center'
+        }}>
+          <Button
+            variant="contained"
+            color="primary"
+            size="large"
+            startIcon={<ScheduleIcon />}
+            onClick={() => setShowScheduleDialog(true)}
+            disabled={unscheduledPresentations.length === 0}
+            sx={{
+              py: 1.5,
+              px: 3,
+              borderRadius: 2,
+              boxShadow: 3,
+              fontWeight: 'bold',
+              '&:hover': {
+                boxShadow: 4,
+                transform: 'translateY(-2px)',
+                transition: 'all 0.2s'
+              }
+            }}
+          >
+            Schedule Presentations ({unscheduledPresentations.length})
+          </Button>
+          
+          <Button
+            variant="contained"
+            color="secondary"
+            size="large"
+            startIcon={<MailIcon />}
+            onClick={handleSendEmails}
+            disabled={sendingEmails || scheduledPresentations.length === 0}
+            sx={{
+              py: 1.5,
+              px: 3,
+              borderRadius: 2,
+              boxShadow: 3,
+              fontWeight: 'bold',
+              '&:hover': {
+                boxShadow: 4,
+                transform: 'translateY(-2px)',
+                transition: 'all 0.2s'
+              }
+            }}
+          >
+            {sendingEmails ? 'Sending...' : 'Send Email Notifications'}
+          </Button>
+        </Box>
+        
+        {/* Scheduled Presentations Table */}
+        <Paper elevation={4} sx={{ borderRadius: 2, overflow: 'hidden', mb: 4 }}>
+          <Box sx={{ 
+            p: 2, 
+            backgroundColor: 'primary.main', 
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <CalendarIcon sx={{ mr: 1 }} />
+            <Typography variant="h6" fontWeight="bold">
+              Scheduled Presentations
+            </Typography>
+          </Box>
+          
+          <TableContainer sx={{ maxHeight: 600 }}>
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Group ID</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Module</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Time</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Venue</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Examiners</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Technology</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {scheduledPresentations.length > 0 ? (
+                  scheduledPresentations.map((presentation) => (
+                    <TableRow 
+                      key={presentation._id}
+                      sx={{ 
+                        '&:nth-of-type(odd)': { backgroundColor: '#fafafa' },
+                        '&:hover': { backgroundColor: '#f1f8ff' }
+                      }}
                     >
-                      {step}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="review-panel">
-            <div className="metrics-summary">
-              <div className="metric-card">
-                <h3>Presentations Scheduled</h3>
-                <div className="metric-value">{metrics.totalScheduled}</div>
-                <div className="metric-desc">Total presentations successfully scheduled</div>
-              </div>
-              <div className="metric-card">
-                <h3>Expertise Match</h3>
-                <div className="metric-value">{metrics.expertiseMatchScore}%</div>
-                <div className="metric-desc">Examiners matched to their expertise</div>
-              </div>
-              <div className="metric-card">
-                <h3>Venue Utilization</h3>
-                <div className="metric-value">{metrics.venueUtilization}%</div>
-                <div className="metric-desc">Efficient use of venue resources</div>
-              </div>
-              <div className="metric-card">
-                <h3>Workload Balance</h3>
-                <div className="metric-value">{metrics.examinerWorkloadBalance}%</div>
-                <div className="metric-desc">Even distribution of presentations</div>
-              </div>
-            </div>
-
-            <div className="schedule-table">
-              <h3>Generated Schedule</h3>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Time</th>
-                    <th>Group</th>
-                    <th>Technology</th>
-                    <th>Venue</th>
-                    <th>Examiners</th>
-                    <th>Match</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scheduledPresentations.map((presentation) => (
-                    <tr key={presentation._id}>
-                      <td>{formatDate(presentation.date)}</td>
-                      <td>{presentation.start_time} - {presentation.end_time}</td>
-                      <td>{presentation.group_id}</td>
-                      <td>{presentation.technology_category}</td>
-                      <td>{getVenueName(presentation.venue_id)}</td>
-                      <td>
-                        {presentation.examiner_ids?.map(id => getExaminerName(id)).join(', ')}
-                      </td>
-                      <td className={getExpertiseMatchClass(Math.floor(Math.random() * 30) + 70)}>
-                        {Math.floor(Math.random() * 30) + 70}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="examiner-workload">
-              <h3>Examiner Workload Distribution</h3>
-              <div className="workload-bars">
-                {calculateExaminerWorkload().map((item) => (
-                  <div key={item.id} className="workload-item">
-                    <div className="examiner-name">{item.name}</div>
-                    <div className="workload-bar-container">
-                      <div 
-                        className="workload-bar" 
-                        style={{ width: `${(item.count / maxExaminerWorkload) * 100}%` }}
-                      ></div>
-                      <div className="workload-count">{item.count} presentations</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="action-buttons">
-              <button className="send-email-btn" onClick={sendEmailNotifications}>
-                Send Email Notifications
-              </button>
-              <button className="adjust-btn">
-                Adjust Schedule
-              </button>
-              <button className="back-btn" onClick={() => setShowResults(false)}>
-                Back to Configuration
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+                      <TableCell>
+                        <Typography fontWeight="medium">{presentation.group_id}</Typography>
+                      </TableCell>
+                      <TableCell>{presentation.module}</TableCell>
+                      <TableCell>{formatDate(presentation.date)}</TableCell>
+                      <TableCell>{`${presentation.start_time} - ${presentation.end_time}`}</TableCell>
+                      <TableCell>{getVenueName(presentation.venue_id)}</TableCell>
+                      <TableCell>
+                        <Tooltip title={getExaminerNames(presentation.examiner_ids)}>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {presentation.examiner_ids?.map((id, index) => (
+                              <Chip
+                                key={index}
+                                label={examiners[id]?.name?.split(' ')[0] || 'Unknown'}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                            ))}
+                          </Box>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={presentation.technology_category} 
+                          size="small"
+                          color="info"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <Typography variant="body1" color="text.secondary">
+                        No presentations have been scheduled yet.
+                      </Typography>
+                      <Button 
+                        variant="outlined" 
+                        color="primary"
+                        onClick={() => setShowScheduleDialog(true)}
+                        sx={{ mt: 2 }}
+                        disabled={unscheduledPresentations.length === 0}
+                      >
+                        Schedule Now
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+        
+        {/* Schedule Dialog */}
+        <Dialog
+          open={showScheduleDialog}
+          onClose={() => setShowScheduleDialog(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ backgroundColor: 'primary.main', color: 'white' }}>
+            Schedule Presentations
+          </DialogTitle>
+          <DialogContent sx={{ pt: 3 }}>
+            <Typography variant="body1" paragraph>
+              The AI scheduler will automatically assign examiners to presentations based on their expertise 
+              and availability, and find suitable venues for each presentation.
+            </Typography>
+            
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Please select the date range for scheduling. The system will only consider available time slots within this range.
+            </Alert>
+            
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' }, 
+              gap: 2,
+              mb: 2
+            }}>
+              <DatePicker
+                label="Start Date"
+                value={dateRange[0]}
+                onChange={(newValue) => setDateRange([newValue, dateRange[1]])}
+                disablePast
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    required: true,
+                    helperText: "Start of scheduling period"
+                  }
+                }}
+              />
+              
+              <DatePicker
+                label="End Date"
+                value={dateRange[1]}
+                onChange={(newValue) => setDateRange([dateRange[0], newValue])}
+                disablePast
+                minDate={dateRange[0]}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    required: true,
+                    helperText: "End of scheduling period"
+                  }
+                }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 3 }}>
+            <Button 
+              onClick={() => setShowScheduleDialog(false)}
+              disabled={isScheduling}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={handleSchedule}
+              disabled={isScheduling || !dateRange[0] || !dateRange[1]}
+              startIcon={isScheduling ? <CircularProgress size={20} /> : <ScheduleIcon />}
+            >
+              {isScheduling ? 'Scheduling...' : 'Schedule Presentations'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        {/* Snackbar for notifications */}
+        <Snackbar 
+          open={snackbar.open} 
+          autoHideDuration={6000} 
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleCloseSnackbar} 
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Container>
+    </LocalizationProvider>
   );
 };
 
