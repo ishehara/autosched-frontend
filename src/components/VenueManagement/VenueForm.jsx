@@ -250,7 +250,13 @@ const AddVenueForm = () => {
 
   const handleSubmit = async () => {
     try {
-      await axios.post('http://localhost:5000/api/venues/', venueData, {
+      // Create a copy of venueData with capacity converted to integer
+      const submissionData = {
+        ...venueData,
+        capacity: parseInt(venueData.capacity, 10)
+      };
+      
+      await axios.post('http://localhost:5000/api/venues/', submissionData, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -293,7 +299,6 @@ const AddVenueForm = () => {
       });
     }
   };
-
   // Review component
   const ReviewContent = () => (
     <Box>

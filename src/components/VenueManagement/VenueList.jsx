@@ -23,7 +23,14 @@ import {
   TextField,
   InputAdornment,
   Button,
-  IconButton
+  IconButton,
+  Snackbar,
+  Alert,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
@@ -53,6 +60,20 @@ const VenueList = () => {
   // State variables for search functionality
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredVenues, setFilteredVenues] = useState([]);
+  
+  // Snackbar state for beautiful alerts
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+  
+  // State for delete confirmation dialog
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    venueId: null,
+    venueName: ''
+  });
   
   const navigate = useNavigate();
   const theme = useTheme();
@@ -123,23 +144,68 @@ const VenueList = () => {
     navigate(`/UpdateVenueForm/${venueId}`);
   };
   
-  const handleDeleteVenue = (venueId) => {
-    // Confirm before deleting
-    if (window.confirm('Are you sure you want to delete this venue?')) {
-      axios.delete(`http://localhost:5000/api/venues/${venueId}`)
-        .then(() => {
-          // Remove the venue from state after successful deletion
-          const updatedVenues = venues.filter(venue => venue._id !== venueId);
-          setVenues(updatedVenues);
-          setFilteredVenues(updatedVenues);
-          calculateStats(updatedVenues);
-          alert('Venue deleted successfully!');
-        })
-        .catch((err) => {
-          console.error('Error deleting venue:', err);
-          alert('Failed to delete venue. Please try again.');
+  // Open delete confirmation dialog
+  const handleOpenDeleteDialog = (venueId) => {
+    // Find the venue name to show in the dialog
+    const venue = venues.find(v => v._id === venueId);
+    setDeleteDialog({
+      open: true,
+      venueId: venueId,
+      venueName: venue?.venue_name || 'this venue'
+    });
+  };
+  
+  // Close delete confirmation dialog
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialog({
+      ...deleteDialog,
+      open: false
+    });
+  };
+  
+  // Actually delete the venue after confirmation
+  const handleDeleteVenue = () => {
+    const venueId = deleteDialog.venueId;
+    
+    axios.delete(`http://localhost:5000/api/venues/${venueId}`)
+      .then(() => {
+        // Remove the venue from state after successful deletion
+        const updatedVenues = venues.filter(venue => venue._id !== venueId);
+        setVenues(updatedVenues);
+        setFilteredVenues(updatedVenues);
+        calculateStats(updatedVenues);
+        
+        // Close the dialog
+        handleCloseDeleteDialog();
+        
+        // Show beautiful success message with Snackbar
+        setSnackbar({
+          open: true,
+          message: 'Venue deleted successfully!',
+          severity: 'success'
         });
+      })
+      .catch((err) => {
+        console.error('Error deleting venue:', err);
+        
+        // Close the dialog
+        handleCloseDeleteDialog();
+        
+        // Show beautiful error message with Snackbar
+        setSnackbar({
+          open: true,
+          message: 'Failed to delete venue. Please try again.',
+          severity: 'error'
+        });
+      });
+  };
+  
+  // Handle closing the snackbar
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
     }
+    setSnackbar({ ...snackbar, open: false });
   };
 
   if (loading) {
@@ -169,8 +235,95 @@ const VenueList = () => {
     </TableCell>
   );
 
+  // Define medium-shade background colors for cards
+ // Define medium-shade background colors for cards with light patterns
+// Define medium-shade background colors for cards with light patterns
+const cardStyles = {
+  totalVenues: {
+    background: 'linear-gradient(135deg,rgb(126, 186, 214) 0%,rgb(157, 191, 207) 100%)',
+    textColor: '#ffffff',
+    overlay: 'radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 50%, rgba(255, 255, 255, 0) 100%)'
+  },
+  availableVenues: {
+    background: 'linear-gradient(135deg,rgb(77, 182, 140) 0%,rgb(71, 251, 233) 100%)',
+    textColor: '#ffffff',
+    accentColor: '#e0f2f1',
+    overlay: 'linear-gradient(120deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 70%, rgba(255, 255, 255, 0) 100%)'
+  },
+  totalCapacity: {
+    background: 'linear-gradient(135deg,rgb(117, 131, 215) 0%,rgb(146, 162, 249) 100%)',
+    textColor: '#ffffff',
+    accentColor: '#e8eaf6',
+    overlay: 'repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05) 10px, rgba(255, 255, 255, 0) 10px, rgba(255, 255, 255, 0) 20px)'
+  },
+  locations: {
+    background: 'linear-gradient(135deg,rgb(251, 165, 138) 0%,rgb(236, 178, 160) 100%)',
+    textColor: '#ffffff',
+    accentColor: '#ffccbc',
+    overlay: 'radial-gradient(ellipse at top right, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 70%)'
+  }
+};
   return (
     <Container maxWidth="xl" sx={{ mt: 8, mb: 6 }}>
+      {/* Snackbar for beautiful notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity} 
+          variant="filled"
+          elevation={6}
+          sx={{ width: '100%', fontSize: '1rem' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+      
+      {/* Beautiful Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialog.open}
+        onClose={handleCloseDeleteDialog}
+        PaperProps={{
+          elevation: 6,
+          sx: { borderRadius: 2 }
+        }}
+      >
+        <DialogTitle sx={{ bgcolor: theme.palette.error.light, color: 'white', py: 2 }}>
+          <Box display="flex" alignItems="center">
+            <DeleteIcon sx={{ mr: 1 }} />
+            Confirm Deletion
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2, minWidth: 400 }}>
+          <DialogContentText>
+            Are you sure you want to delete <strong>{deleteDialog.venueName}</strong>? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button 
+            onClick={handleCloseDeleteDialog} 
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteVenue} 
+            variant="contained" 
+            color="error"
+            startIcon={<DeleteIcon />}
+            sx={{ borderRadius: 2 }}
+            autoFocus
+          >
+            Delete Venue
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h3" fontWeight="bold" color="primary">
           Venue Management Dashboard
@@ -198,64 +351,112 @@ const VenueList = () => {
       </Box>
       <Divider sx={{ mb: 4 }} />
 
-      {/* Stats Summary Cards */}
+      {/* Stats Summary Cards with Darker Shade */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={4} sx={{ height: '100%', borderRadius: 2, transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-5px)' } }}>
+          <Card 
+            elevation={4} 
+            sx={{ 
+              height: '100%', 
+              borderRadius: 2, 
+              background: cardStyles.totalVenues.background,
+              transition: 'transform 0.3s, box-shadow 0.3s', 
+              '&:hover': { 
+                transform: 'translateY(-5px)',
+                boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+              } 
+            }}
+          >
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="h6" color="textSecondary">Total Venues</Typography>
-                <MeetingRoomIcon color="primary" fontSize="large" />
+                <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.95)' }}>Total Venues</Typography>
+                <MeetingRoomIcon sx={{ color: 'rgba(255,255,255,0.95)' }} fontSize="large" />
               </Box>
-              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2 }}>
+              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: cardStyles.totalVenues.textColor }}>
                 {stats.totalVenues}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={4} sx={{ height: '100%', borderRadius: 2, bgcolor: 'rgba(0, 196, 159, 0.08)', transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-5px)' } }}>
+          <Card 
+            elevation={4} 
+            sx={{ 
+              height: '100%', 
+              borderRadius: 2, 
+              background: cardStyles.availableVenues.background,
+              transition: 'transform 0.3s, box-shadow 0.3s', 
+              '&:hover': { 
+                transform: 'translateY(-5px)',
+                boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+              } 
+            }}
+          >
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="h6" color="textSecondary">Available</Typography>
-                <EventAvailableIcon sx={{ color: '#00C49F' }} fontSize="large" />
+                <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.95)' }}>Available</Typography>
+                <EventAvailableIcon sx={{ color: 'rgba(255,255,255,0.95)' }} fontSize="large" />
               </Box>
-              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: '#00C49F' }}>
+              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: '#ffffff' }}>
                 {stats.availableVenues}
               </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+              <Typography variant="body2" sx={{ mt: 1, color: 'rgba(255,255,255,0.85)' }}>
                 {Math.round((stats.availableVenues / stats.totalVenues) * 100)}% of total
               </Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={4} sx={{ height: '100%', borderRadius: 2, bgcolor: 'rgba(0, 136, 254, 0.08)', transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-5px)' } }}>
+          <Card 
+            elevation={4} 
+            sx={{ 
+              height: '100%', 
+              borderRadius: 2, 
+              background: cardStyles.totalCapacity.background,
+              transition: 'transform 0.3s, box-shadow 0.3s', 
+              '&:hover': { 
+                transform: 'translateY(-5px)',
+                boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+              } 
+            }}
+          >
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="h6" color="textSecondary">Total Capacity</Typography>
-                <GroupIcon sx={{ color: '#0088FE' }} fontSize="large" />
+                <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.95)' }}>Total Capacity</Typography>
+                <GroupIcon sx={{ color: 'rgba(255,255,255,0.95)' }} fontSize="large" />
               </Box>
-              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: '#0088FE' }}>
+              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: '#ffffff' }}>
                 {stats.totalCapacity}
               </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+              <Typography variant="body2" sx={{ mt: 1, color: 'rgba(255,255,255,0.85)' }}>
                 Avg: {Math.round(stats.totalCapacity / stats.totalVenues)} per venue
               </Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={4} sx={{ height: '100%', borderRadius: 2, bgcolor: 'rgba(255, 128, 66, 0.08)', transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-5px)' } }}>
+          <Card 
+            elevation={4} 
+            sx={{ 
+              height: '100%', 
+              borderRadius: 2, 
+              background: cardStyles.locations.background,
+              transition: 'transform 0.3s, box-shadow 0.3s', 
+              '&:hover': { 
+                transform: 'translateY(-5px)',
+                boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+              } 
+            }}
+          >
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="h6" color="textSecondary">Locations</Typography>
-                <LocationOnIcon sx={{ color: '#FF8042' }} fontSize="large" />
+                <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.95)' }}>Locations</Typography>
+                <LocationOnIcon sx={{ color: 'rgba(255,255,255,0.95)' }} fontSize="large" />
               </Box>
-              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: '#FF8042' }}>
+              <Typography variant="h3" component="div" fontWeight="bold" sx={{ mt: 2, color: '#ffffff' }}>
                 {Object.keys(stats.locations).length}
               </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+              <Typography variant="body2" sx={{ mt: 1, color: 'rgba(255,255,255,0.85)' }}>
                 Different venue locations
               </Typography>
             </CardContent>
@@ -427,7 +628,7 @@ const VenueList = () => {
                         <IconButton 
                           size="small"
                           color="error"
-                          onClick={() => handleDeleteVenue(venue._id)}
+                          onClick={() => handleOpenDeleteDialog(venue._id)}
                           sx={{ 
                             bgcolor: 'rgba(211, 47, 47, 0.1)',
                             '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.2)' }
