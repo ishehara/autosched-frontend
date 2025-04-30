@@ -1,12 +1,24 @@
-# React + Vite
+# AutoSched – AI-Powered Presentation Scheduling Web Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+AutoSched is an AI-powered web-based scheduling platform developed to automate and streamline the process of scheduling academic presentations in educational institutions. Traditional scheduling methods often result in resource conflicts, such as double-booking venues or assigning unavailable examiners. AutoSched solves this by providing a centralized, intelligent system that ensures every presentation is scheduled without conflicts, based on examiner availability, venue capacity, and presentation time slot overlaps.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 🔄 AI-powered **conflict-free scheduling**
+- 🏫 Venue Management System with full CRUD operations
+- 👨‍🏫 Examiner Management with full CRUD operations
+- 📅 Presentation Management with full CRUD Operation
 
-## Expanding the ESLint configuration
 
-If you are developing a production application, we recommend using TypeScript and enable type-aware lint rules. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 💻 Technologies Used
+
+| Layer        | Technology                      |
+|--------------|----------------------------------|
+| Frontend     | React.js (Vite), Material UI     |
+| Backend      | Flask (Python), Flask-CORS, Flask-Mail |
+| Database     | MongoDB with PyMongo             |
+| Testing      | Selenium (for UI automation), Postman (API testing) |
+| Project Tools| GitHub, Azure Boards             |
+
+
+
