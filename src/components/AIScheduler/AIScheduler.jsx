@@ -19,30 +19,24 @@ import {
   TableRow,
   CircularProgress,
   Alert,
-  TextField,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Chip,
-  IconButton,
   Tooltip,
-  FormControlLabel,
-  Switch,
   Snackbar
 } from '@mui/material';
 import { 
   CalendarMonth as CalendarIcon,
-  Send as SendIcon,
   Schedule as ScheduleIcon,
   Person as PersonIcon,
-  Room as RoomIcon,
   School as SchoolIcon,
   DateRange as DateRangeIcon,
   MailOutline as MailIcon,
-  Info as InfoIcon,
   CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon 
+  Error as ErrorIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -210,18 +204,29 @@ const AIScheduler = () => {
     setIsScheduling(true);
     
     try {
+      // Format the date range as strings in YYYY-MM-DD format
+      // This is critical for proper backend API consumption
       const formattedDateRange = [
         dateRange[0].format('YYYY-MM-DD'),
         dateRange[1].format('YYYY-MM-DD')
       ];
       
+      console.log('Sending schedule request with date range:', formattedDateRange);
+      
+      // Ensure the data structure matches exactly what the backend expects
       const response = await axios.post(`${API_BASE_URL}/presentations/schedule`, {
         date_range: formattedDateRange
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      
+      console.log('Schedule response:', response.data);
       
       if (response.data && response.data.scheduled_presentations) {
         // Refresh presentation data
-        fetchAllData();
+        await fetchAllData();
         
         setSnackbar({
           open: true,
@@ -233,7 +238,7 @@ const AIScheduler = () => {
       console.error('Error scheduling presentations:', err);
       setSnackbar({
         open: true,
-        message: 'Failed to schedule presentations. Please try again.',
+        message: `Failed to schedule presentations: ${err.response?.data?.message || err.message}`,
         severity: 'error'
       });
     } finally {
@@ -352,9 +357,9 @@ const AIScheduler = () => {
         </Paper>
         
         {/* Stats Section */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={8} sx={{ mb: 4, justifyContent: 'center' }}>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 3 }}>
+            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 3, width: '300px' }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
                 <Typography variant="h4" color="success.main" fontWeight="bold">
@@ -366,9 +371,9 @@ const AIScheduler = () => {
               </CardContent>
             </Card>
           </Grid>
-          
+          <Grid item md={1.5} display={{ xs: 'none', md: 'block' }} />
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 3 }}>
+            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 3, width: '300px' }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <CalendarIcon sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
                 <Typography variant="h4" color="warning.main" fontWeight="bold">
@@ -380,7 +385,6 @@ const AIScheduler = () => {
               </CardContent>
             </Card>
           </Grid>
-          
         </Grid>
         
         {/* Action Buttons */}
@@ -414,28 +418,7 @@ const AIScheduler = () => {
             Schedule Presentations ({unscheduledPresentations.length})
           </Button>
           
-          <Button
-            variant="contained"
-            color="secondary"
-            size="large"
-            startIcon={<MailIcon />}
-            onClick={handleSendEmails}
-            disabled={sendingEmails || scheduledPresentations.length === 0}
-            sx={{
-              py: 1.5,
-              px: 3,
-              borderRadius: 2,
-              boxShadow: 3,
-              fontWeight: 'bold',
-              '&:hover': {
-                boxShadow: 4,
-                transform: 'translateY(-2px)',
-                transition: 'all 0.2s'
-              }
-            }}
-          >
-            {sendingEmails ? 'Sending...' : 'Send Email Notifications'}
-          </Button>
+          
         </Box>
         
         {/* Scheduled Presentations Table */}
@@ -530,10 +513,67 @@ const AIScheduler = () => {
           </TableContainer>
         </Paper>
         
+        {/* Unscheduled Presentations */}
+        {unscheduledPresentations.length > 0 && (
+          <Paper elevation={4} sx={{ borderRadius: 2, overflow: 'hidden', mb: 4 }}>
+            <Box sx={{ 
+              p: 2, 
+              backgroundColor: 'warning.main', 
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <CalendarIcon sx={{ mr: 1 }} />
+              <Typography variant="h6" fontWeight="bold">
+                Pending Presentations
+              </Typography>
+            </Box>
+            
+            <TableContainer sx={{ maxHeight: 400 }}>
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Group ID</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Module</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Attendees</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Required Examiners</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Technology</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {unscheduledPresentations.map((presentation) => (
+                    <TableRow 
+                      key={presentation._id}
+                      sx={{ 
+                        '&:nth-of-type(odd)': { backgroundColor: '#fafafa' },
+                        '&:hover': { backgroundColor: '#fff9c4' }
+                      }}
+                    >
+                      <TableCell>
+                        <Typography fontWeight="medium">{presentation.group_id}</Typography>
+                      </TableCell>
+                      <TableCell>{presentation.module}</TableCell>
+                      <TableCell>{presentation.num_attendees}</TableCell>
+                      <TableCell>{presentation.required_examiners}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={presentation.technology_category} 
+                          size="small"
+                          color="primary"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        )}
+        
         {/* Schedule Dialog */}
         <Dialog
           open={showScheduleDialog}
-          onClose={() => setShowScheduleDialog(false)}
+          onClose={() => !isScheduling && setShowScheduleDialog(false)}
           maxWidth="sm"
           fullWidth
         >
