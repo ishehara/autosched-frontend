@@ -53,12 +53,49 @@ const PresentationForm = () => {
 
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const [moduleError, setModuleError] = useState('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Special handling for module field
+    if (name === 'module') {
+      // Convert to uppercase for first two characters
+      const formattedValue = value.toUpperCase();
+      
+      // Validate module format as user types
+      if (value) {
+        const moduleRegex = /^[A-Z]{2}\d{0,4}$/;
+        if (!moduleRegex.test(formattedValue)) {
+          setModuleError('Module must have 2 uppercase letters followed by 4 numbers');
+        } else if (formattedValue.length > 6) {
+          setModuleError('Module cannot exceed 6 characters');
+        } else {
+          setModuleError('');
+        }
+      } else {
+        setModuleError('');
+      }
+      
+      setFormData({
+        ...formData,
+        [name]: formattedValue
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
+  };
+  
+  const handleTechnologyChange = (technology) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      technology_category: technology
     });
   };
   
@@ -78,6 +115,39 @@ const PresentationForm = () => {
       setError('Module is required');
       return false;
     }
+    if (!formData.num_attendees || parseInt(formData.num_attendees) <= 0) {
+      setError('Number of attendees must be a positive number');
+      return false;
+    }
+    if (!formData.required_examiners || parseInt(formData.required_examiners) <= 0) {
+      setError('Required examiners must be a positive number');
+      return false;
+    }
+    if (!formData.technology_category) {
+      setError('Please select a technology category');
+      return false;
+    }
+    return true;
+  };
+
+  const validateForm = () => {
+    if (!formData.group_id.trim()) {
+      setError('Group ID is required');
+      return false;
+    }
+    
+    // Module validation
+    if (!formData.module.trim()) {
+      setError('Module is required');
+      return false;
+    }
+    
+    const moduleRegex = /^[A-Z]{2}\d{4}$/;
+    if (!moduleRegex.test(formData.module)) {
+      setError('Module must be in format: 2 uppercase letters followed by 4 numbers (e.g., IT3040)');
+      return false;
+    }
+    
     if (!formData.num_attendees || parseInt(formData.num_attendees) <= 0) {
       setError('Number of attendees must be a positive number');
       return false;
@@ -123,6 +193,9 @@ const PresentationForm = () => {
         required_examiners: '',
         technology_category: ''
       });
+
+      setModuleError('');
+
       
       // Navigate after successful submission
       setTimeout(() => {
@@ -141,7 +214,9 @@ const PresentationForm = () => {
       display: 'flex', 
       justifyContent: 'center', 
       alignItems: 'center', 
-      minHeight: '100vh', 
+
+      minHeight: '120vh', 
+
       p: 3,
       backgroundColor: '#f5f7fa'
     }}>
@@ -213,6 +288,13 @@ const PresentationForm = () => {
                   required
                   variant="outlined"
                   placeholder="e.g., IT3040"
+
+                  inputProps={{ 
+                    maxLength: 6,
+                  }}
+                  error={!!moduleError}
+                  helperText={moduleError || "Format: 2 uppercase letters + 4 numbers (e.g., IT3040)"}
+
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
