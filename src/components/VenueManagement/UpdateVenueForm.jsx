@@ -190,6 +190,7 @@ const UpdateVenueForm = () => {
                 >
                   <MenuItem value="Available">Available</MenuItem>
                   <MenuItem value="Not Available">Not Available</MenuItem>
+                  
                 </Select>
               </FormControl>
             </Grid>
