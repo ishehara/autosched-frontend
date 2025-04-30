@@ -90,14 +90,8 @@ const PresentationForm = () => {
         [name]: value
       });
     }
-  };
   
-  const handleTechnologyChange = (technology) => {
-    setFormData({
-      ...formData,
-      technology_category: technology
-    });
-  };
+ 
   
   const handleTechnologyChange = (technology) => {
     setFormData({
@@ -129,12 +123,6 @@ const PresentationForm = () => {
     }
     return true;
   };
-
-  const validateForm = () => {
-    if (!formData.group_id.trim()) {
-      setError('Group ID is required');
-      return false;
-    }
     
     // Module validation
     if (!formData.module.trim()) {
