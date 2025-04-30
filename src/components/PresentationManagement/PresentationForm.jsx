@@ -53,7 +53,9 @@ const PresentationForm = () => {
 
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
   const [moduleError, setModuleError] = useState('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
@@ -95,6 +97,37 @@ const PresentationForm = () => {
       ...formData,
       technology_category: technology
     });
+  };
+  
+  const handleTechnologyChange = (technology) => {
+    setFormData({
+      ...formData,
+      technology_category: technology
+    });
+  };
+
+  const validateForm = () => {
+    if (!formData.group_id.trim()) {
+      setError('Group ID is required');
+      return false;
+    }
+    if (!formData.module.trim()) {
+      setError('Module is required');
+      return false;
+    }
+    if (!formData.num_attendees || parseInt(formData.num_attendees) <= 0) {
+      setError('Number of attendees must be a positive number');
+      return false;
+    }
+    if (!formData.required_examiners || parseInt(formData.required_examiners) <= 0) {
+      setError('Required examiners must be a positive number');
+      return false;
+    }
+    if (!formData.technology_category) {
+      setError('Please select a technology category');
+      return false;
+    }
+    return true;
   };
 
   const validateForm = () => {
@@ -160,7 +193,9 @@ const PresentationForm = () => {
         required_examiners: '',
         technology_category: ''
       });
+
       setModuleError('');
+
       
       // Navigate after successful submission
       setTimeout(() => {
@@ -179,7 +214,9 @@ const PresentationForm = () => {
       display: 'flex', 
       justifyContent: 'center', 
       alignItems: 'center', 
+
       minHeight: '120vh', 
+
       p: 3,
       backgroundColor: '#f5f7fa'
     }}>
@@ -251,11 +288,13 @@ const PresentationForm = () => {
                   required
                   variant="outlined"
                   placeholder="e.g., IT3040"
+
                   inputProps={{ 
                     maxLength: 6,
                   }}
                   error={!!moduleError}
                   helperText={moduleError || "Format: 2 uppercase letters + 4 numbers (e.g., IT3040)"}
+
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
