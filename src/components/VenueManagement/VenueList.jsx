@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import jsPDF from 'jspdf';
+
+
 import axios from 'axios';
+
+
+
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -208,6 +214,215 @@ const VenueList = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+
+  const generateVenueReport = () => {
+    const doc = new jsPDF();
+    
+    // Set document properties
+    doc.setProperties({
+      title: 'Venue Statistics Report',
+      author: 'Venue Management System',
+      creator: 'Venue Dashboard'
+    });
+    
+    // Helper function to add a horizontal line
+    const addHorizontalLine = (y, lineWidth = 0.5) => {
+      doc.setDrawColor(100, 100, 100);
+      doc.setLineWidth(lineWidth);
+      doc.line(14, y, 196, y);
+    };
+    
+    // Helper function for section titles
+    const addSectionTitle = (text, y) => {
+      doc.setFillColor(70, 130, 180); // Steel blue
+      doc.rect(14, y - 6, 182, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(text, 17, y);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      return y + 10;
+    };
+    
+    // Helper function to add stat with label and value
+    const addStat = (label, value, y, icon = null) => {
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(label + ':', 20, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(value.toString(), 80, y);
+      return y + 8;
+    };
+    
+    // Create header
+    doc.setFillColor(41, 128, 185); // Blue header
+    doc.rect(0, 0, 210, 30, 'F');
+    
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('VENUE MANAGEMENT SYSTEM', 105, 15, { align: 'center' });
+    
+    doc.setFontSize(16);
+    doc.text('Statistics Report', 105, 24, { align: 'center' });
+    
+    // Add report date
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'italic');
+    const today = new Date();
+    doc.text(`Generated on: ${today.toLocaleDateString()} at ${today.toLocaleTimeString()}`, 
+      14, 40);
+    
+    // Add horizontal line
+    addHorizontalLine(45);
+    
+    // Summary Section
+    let yPos = addSectionTitle('VENUE SUMMARY', 55);
+    
+    // Add key statistics in 2x2 grid format with borders
+    const boxWidth = 85;
+    const boxHeight = 25;
+  
+    // Top row boxes
+    // Box 1: Total Venues
+    doc.setDrawColor(70, 130, 180);
+    doc.setLineWidth(0.5);
+    doc.rect(14, yPos, boxWidth, boxHeight);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL VENUES', 20, yPos + 7);
+    doc.setFontSize(18);
+    doc.setTextColor(41, 128, 185);
+    doc.text(stats.totalVenues.toString(), 20, yPos + 20);
+    doc.setTextColor(0, 0, 0);
+    
+    // Box 2: Available Venues
+    doc.setDrawColor(46, 204, 113);
+    doc.rect(14 + boxWidth + 10, yPos, boxWidth, boxHeight);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('AVAILABLE VENUES', 14 + boxWidth + 16, yPos + 7);
+    doc.setFontSize(18);
+    doc.setTextColor(46, 204, 113);
+    doc.text(stats.availableVenues.toString(), 14 + boxWidth + 16, yPos + 20);
+    doc.setTextColor(0, 0, 0);
+    
+    // Bottom row boxes
+    yPos += boxHeight + 5;
+    
+    // Box 3: Total Capacity
+    doc.setDrawColor(241, 196, 15);
+    doc.rect(14, yPos, boxWidth, boxHeight);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL CAPACITY', 20, yPos + 7);
+    doc.setFontSize(18);
+    doc.setTextColor(241, 196, 15);
+    doc.text(stats.totalCapacity.toString(), 20, yPos + 20);
+    doc.setTextColor(0, 0, 0);
+    
+    // Box 4: Average Capacity
+    doc.setDrawColor(155, 89, 182);
+    doc.rect(14 + boxWidth + 10, yPos, boxWidth, boxHeight);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('AVERAGE CAPACITY', 14 + boxWidth + 16, yPos + 7);
+    doc.setFontSize(18);
+    doc.setTextColor(155, 89, 182);
+    const avgCapacity = Math.round(stats.totalCapacity / (stats.totalVenues || 1));
+    doc.text(avgCapacity.toString(), 14 + boxWidth + 16, yPos + 20);
+    doc.setTextColor(0, 0, 0);
+    
+    yPos += boxHeight + 15;
+    
+    // Availability percentage with simple chart
+    yPos = addSectionTitle('AVAILABILITY BREAKDOWN', yPos);
+    
+    const availabilityPercentage = Math.round((stats.availableVenues / stats.totalVenues) * 100);
+    const unavailablePercentage = 100 - availabilityPercentage;
+    
+    doc.setFontSize(11);
+    doc.text('Availability Status:', 20, yPos + 5);
+    
+    // Draw availability bar chart
+    const barWidth = 150;
+    const barHeight = 15;
+    const availWidth = (availabilityPercentage / 100) * barWidth;
+    
+    // Available bar (green)
+    doc.setFillColor(46, 204, 113);
+    doc.rect(40, yPos + 10, availWidth, barHeight, 'F');
+    
+    // Unavailable bar (gray)
+    doc.setFillColor(189, 195, 199);
+    doc.rect(40 + availWidth, yPos + 10, barWidth - availWidth, barHeight, 'F');
+    
+    // Labels
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Available: ${availabilityPercentage}%`, 40 + (availWidth/2), yPos + 20, { align: 'center' });
+    doc.text(`Unavailable: ${unavailablePercentage}%`, 40 + availWidth + ((barWidth - availWidth)/2), yPos + 20, { align: 'center' });
+    
+    yPos += 30;
+    
+    // Location Analysis Section
+    yPos = addSectionTitle('LOCATION ANALYSIS', yPos);
+    
+    const locationEntries = Object.entries(stats.locations);
+    if (locationEntries.length > 0) {
+      doc.setFontSize(11);
+      doc.text('Distribution of venues by location:', 20, yPos + 5);
+      
+      yPos += 10;
+      
+      // Create a table header for locations
+      doc.setFillColor(240, 240, 240);
+      doc.rect(20, yPos, 100, 8, 'F');
+      doc.rect(120, yPos, 30, 8, 'F');
+      doc.rect(150, yPos, 40, 8, 'F');
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Location', 25, yPos + 6);
+      doc.text('Count', 125, yPos + 6);
+      doc.text('Percentage', 155, yPos + 6);
+      
+      yPos += 8;
+      
+      // Add location data rows
+      locationEntries.forEach(([location, count], index) => {
+        const rowY = yPos + (index * 8);
+        // Alternate row colors
+        if (index % 2 === 0) {
+          doc.setFillColor(248, 248, 248);
+          doc.rect(20, rowY, 170, 8, 'F');
+        }
+        
+        doc.setFont('helvetica', 'normal');
+        doc.text(location, 25, rowY + 6);
+        doc.text(count.toString(), 125, rowY + 6);
+        
+        const percentage = Math.round((count / stats.totalVenues) * 100);
+        doc.text(`${percentage}%`, 155, rowY + 6);
+      });
+      
+      yPos += (locationEntries.length * 8) + 10;
+    }
+    
+    // Footer
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.text('This is an automatically generated report from the Venue Management System.', 105, 285, { align: 'center' });
+    doc.text('For questions or support, please contact the system administrator.', 105, 290, { align: 'center' });
+    
+    // Save the PDF
+    doc.save('venue_statistics_report.pdf');
+  };
+  
+  
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 20 }}>
@@ -348,6 +563,29 @@ const cardStyles = {
         >
           Add Venue
         </Button>
+
+        <Button
+  variant="outlined"
+  color="secondary"
+  startIcon={<InfoIcon />}
+  size="large"
+  onClick={generateVenueReport}
+  sx={{ 
+    borderRadius: 2, 
+    fontWeight: 'bold',
+    px: 3,
+    py: 1,
+    boxShadow: 1,
+    ml: 2,
+    '&:hover': {
+      boxShadow: 3,
+      backgroundColor: theme.palette.secondary.light
+    }
+  }}
+>
+  Download Report
+</Button>
+
       </Box>
       <Divider sx={{ mb: 4 }} />
 
