@@ -1,8 +1,9 @@
+// ... (imports stay the same)
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Paper, Typography, CircularProgress, Alert, Box, 
+  TableRow, Paper, Typography, CircularProgress, Alert, Box,
   Divider, Chip, Container, Card, CardContent, Tooltip,
   Grid, IconButton, Button, TextField, InputAdornment
 } from '@mui/material';
@@ -53,10 +54,10 @@ const PresentationView = () => {
     if (searchTerm.trim() === '') {
       setFilteredPresentations(presentations);
     } else {
-      const filtered = presentations.filter(presentation =>
-        (presentation.group_id && presentation.group_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (presentation.module && presentation.module.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (presentation.technology_category && presentation.technology_category.toLowerCase().includes(searchTerm.toLowerCase()))
+      const filtered = presentations.filter(p =>
+        (p.group_id && p.group_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (p.module && p.module.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (p.technology_category && p.technology_category.toLowerCase().includes(searchTerm.toLowerCase()))
       );
       setFilteredPresentations(filtered);
     }
@@ -66,14 +67,14 @@ const PresentationView = () => {
     navigate('/presentationsForm');
   };
 
-  const handleEditPresentation = (presentationId) => {
-    navigate(`/presentationsedit/${presentationId}`);
+  const handleEditPresentation = (id) => {
+    navigate(`/presentationsedit/${id}`);
   };
 
-  const handleDeletePresentation = async (presentationId) => {
-    if (confirmDelete === presentationId) {
+  const handleDeletePresentation = async (id) => {
+    if (confirmDelete === id) {
       try {
-        await axios.delete(`${API_BASE_URL}/presentations/${presentationId}`);
+        await axios.delete(`${API_BASE_URL}/presentations/${id}`);
         fetchPresentations();
         setConfirmDelete(null);
       } catch (err) {
@@ -81,7 +82,7 @@ const PresentationView = () => {
         setError('Failed to delete presentation. Please try again.');
       }
     } else {
-      setConfirmDelete(presentationId);
+      setConfirmDelete(id);
       setTimeout(() => setConfirmDelete(null), 3000);
     }
   };
@@ -104,19 +105,17 @@ const PresentationView = () => {
     return colors[technology] || '#e6e6fa';
   };
 
-  const getStatusBadgeColor = (scheduled) => {
-    return {
-      backgroundColor: scheduled ? '#c8e6c9' : '#fff9c4',
-      color: scheduled ? '#388e3c' : '#fbc02d',
-      fontWeight: 500,
-      borderRadius: '12px',
-      padding: '4px 12px',
-      fontSize: '0.75rem',
-      display: 'inline-block',
-      textAlign: 'center',
-      minWidth: '80px'
-    };
-  };
+  const getStatusBadgeColor = (scheduled) => ({
+    backgroundColor: scheduled ? '#c8e6c9' : '#fff9c4',
+    color: scheduled ? '#388e3c' : '#fbc02d',
+    fontWeight: 500,
+    borderRadius: '12px',
+    padding: '4px 12px',
+    fontSize: '0.75rem',
+    display: 'inline-block',
+    textAlign: 'center',
+    minWidth: '80px'
+  });
 
   const getStats = () => {
     if (!presentations.length) return {
@@ -150,7 +149,27 @@ const PresentationView = () => {
     };
   };
 
+  const getMonthlyScheduledReport = () => {
+    const monthlyReport = {};
+
+    presentations.forEach(p => {
+      if (p.scheduled && p.date) {
+        const date = new Date(p.date);
+        const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+        if (!monthlyReport[month]) {
+          monthlyReport[month] = [];
+        }
+
+        monthlyReport[month].push(p);
+      }
+    });
+
+    return monthlyReport;
+  };
+
   const stats = getStats();
+  const scheduledReport = getMonthlyScheduledReport();
 
   if (loading) {
     return (
@@ -198,6 +217,7 @@ const PresentationView = () => {
             <StatCard icon={<PeopleAltIcon fontSize="large" sx={{ color: '#7b1fa2' }} />} value={stats.totalAttendees} label="Total Attendees" bg="#e1bee7" />
           </Grid>
         </Grid>
+        
 
         {/* Search & Add */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
@@ -216,6 +236,21 @@ const PresentationView = () => {
           >
             Add New Presentation
           </Button>
+
+          <Button
+          variant="contained"
+          onClick={() => navigate('/presentation-report')}
+          sx={{
+            borderRadius: 2, px: 3, py: 1,
+            background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
+            boxShadow: '0 4px 8px rgba(25, 118, 210, 0.3)',
+            '&:hover': {
+              boxShadow: '0 6px 12px rgba(25, 118, 210, 0.4)',
+            }
+          }}
+          >
+          View Monthly Presentation Reports
+        </Button>
           <TextField
             variant="outlined"
             placeholder="Search presentations"
@@ -276,6 +311,7 @@ const PresentationView = () => {
             </TableContainer>
           </CardContent>
         </Card>
+
       </Box>
     </Container>
   );

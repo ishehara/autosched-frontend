@@ -17,6 +17,7 @@ import LoginForm from "./components/Pages/LoginForm";
 import PresentationView from "./components/PresentationManagement/PresentationView";
 import PresentationForm from "./components/PresentationManagement/PresentationForm";
 import EditPresentation from "./components/PresentationManagement/EditPresentation";
+import PresentationReport from "./components/PresentationManagement/PresentationReport";
 
 import AIScheduler from "./components/AIScheduler/AIScheduler";
 
@@ -43,11 +44,13 @@ function App() {
         {/* Route to edit an existing presentation */}
         <Route path="/presentationsedit/:id" element={<EditPresentation />} />
 
+        {/* Route to view the presentation report */} 
+        <Route path="/presentation-report" element={<PresentationReport />} />
+
         <Route path="/AIScheduler" element={<AIScheduler />} /> {/* ✅ Check the path here */}
   
         <Route path="/addExaminer" element={<ExaminerForm />} />
         <Route path="/editExaminer/:id" element={<EditExaminer />} />
-        <Route path="/reports" element={<ReportsPage />} />
         <Route path="/ExaminerList" element={<ExaminerList />} />
 
       </Routes>
