@@ -139,7 +139,7 @@ const ReportsPage = () => {
             <MenuItem value="">All Types</MenuItem>
             <MenuItem value="Examiner Allocation">Examiner Allocation</MenuItem>
             <MenuItem value="Room Usage">Room Usage</MenuItem>
-            <MenuItem value="Presentation Schedules">Presentation Schedules</MenuItem>
+            <MenuItem value="PresentationReport">Presentation Schedules</MenuItem>
           </TextField>
 
           <TextField
