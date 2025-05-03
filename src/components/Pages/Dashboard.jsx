@@ -76,28 +76,7 @@ function Dashboard() {
                 AI-Powered Presentation Scheduling Dashboard
               </Typography>
             </Box>
-            <Button 
-                    component={Link} to="/reports"
-
-              variant="contained" 
-              color="secondary" 
-              startIcon={<ReportIcon />}
-              onClick={goToReportPage}
-              sx={{ 
-                fontWeight: 'bold', 
-                px: 3, 
-                py: 1.5, 
-                borderRadius: 2,
-                boxShadow: 3,
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: 5
-                }
-              }}
-            >
-              Generated Reports
-            </Button>
+             
           </Box>
         </Paper>
         
