@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import jsPDF from 'jspdf';
 import axios from 'axios';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Paper, Typography, CircularProgress, Alert, Box, 
   Divider, Chip, Container, Card, CardContent, Tooltip,
-  Grid, IconButton, Collapse, Stack, Button, TextField, InputAdornment
+  Grid, IconButton, Collapse, Stack, Button, TextField, InputAdornment,
+  Snackbar
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
@@ -36,6 +38,7 @@ const ExaminerList = () => {
   const [openRowId, setOpenRowId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [successAlert, setSuccessAlert] = useState({ open: false, message: '' });
   const navigate = useNavigate();
 
   const fetchExaminers = async () => {
@@ -89,6 +92,11 @@ const ExaminerList = () => {
     if (confirmDelete === examinerId) {
       try {
         await axios.delete(`${API_BASE_URL}/examiners/${examinerId}`);
+        // Show success alert
+        setSuccessAlert({
+          open: true,
+          message: 'Examiner deleted successfully'
+        });
         // Refresh the examiner list after deletion
         fetchExaminers();
         setConfirmDelete(null);
@@ -103,6 +111,14 @@ const ExaminerList = () => {
         setConfirmDelete(null);
       }, 3000);
     }
+  };
+
+  // Handle closing the success alert
+  const handleCloseAlert = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSuccessAlert({ ...successAlert, open: false });
   };
 
   // Format date for better display
@@ -207,6 +223,253 @@ const ExaminerList = () => {
     );
   }
 
+  const handleGenerateReport = () => {
+    // Create new jsPDF document
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const contentWidth = pageWidth - (margin * 2);
+    
+    // Color scheme
+    const colors = {
+      primary: [30, 100, 200],      // Vibrant blue
+      secondary: [80, 80, 80],      // Dark gray for text
+      lightGray: [240, 240, 240],   // Light gray for alternating rows
+      mediumGray: [180, 180, 180],  // Medium gray for borders
+      white: [255, 255, 255]        // White
+    };
+  
+    // Add title with styling
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(28);
+    doc.setTextColor(...colors.primary);
+    doc.text('Examiner Directory Report', pageWidth / 2, 30, { align: 'center' });
+    
+    // Add current date
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.setTextColor(...colors.secondary);
+    const today = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    doc.text(`Generated on: ${today}`, pageWidth / 2, 40, { align: 'center' });
+    
+    // Add horizontal line with gradient effect
+    const drawGradientLine = (y) => {
+      for (let i = 0; i < 50; i++) {
+        const opacity = 1 - (i / 50);
+        doc.setDrawColor(...colors.primary, opacity);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y + i/10, pageWidth - margin, y + i/10);
+      }
+    };
+    
+    drawGradientLine(45);
+    
+    // Summary Statistics section with a better layout
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(...colors.primary);
+    doc.text('Summary Statistics', margin, 60);
+    
+    // Stats container with rounded rectangle background
+    doc.setFillColor(...colors.lightGray);
+    doc.roundedRect(margin, 65, contentWidth, 50, 5, 5, 'F');
+    
+    // Stats content with better organization
+    const drawStatItem = (label, value, x, y) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(...colors.secondary);
+      doc.text(label, x, y);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(14);
+      doc.setTextColor(...colors.primary);
+      doc.text(value.toString(), x, y + 8);
+    };
+    
+    // First row of stats
+    drawStatItem('Total Examiners:', stats.totalExaminers, margin + 15, 80);
+    drawStatItem('Departments:', stats.departments, margin + contentWidth/2, 80);
+    
+    // Second row of stats
+    drawStatItem('Most Common Expertise:', stats.mostCommonExpertise, margin + 15, 100);
+    drawStatItem('Total Availability Slots:', stats.totalAvailabilitySlots, margin + contentWidth/2, 100);
+    
+    // Examiner Directory section
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(...colors.primary);
+    doc.text('Examiner Directory', margin, 135);
+    
+    // Table configuration
+    const tableTop = 145;
+    const tableHeaders = ['Name', 'Department', 'Position', 'Expertise Areas', 'Availability'];
+    const colWidths = [0.25, 0.20, 0.20, 0.25, 0.10]; // Proportions of contentWidth
+    let colX = [margin];
+    
+    // Calculate column positions
+    for (let i = 0; i < colWidths.length - 1; i++) {
+      colX.push(colX[i] + colWidths[i] * contentWidth);
+    }
+    
+    // Draw table header with gradient
+    const drawHeader = (y) => {
+      // Header background
+      doc.setFillColor(...colors.primary);
+      doc.roundedRect(margin, y - 7, contentWidth, 10, 2, 2, 'F');
+      
+      // Header text
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...colors.white);
+      
+      tableHeaders.forEach((header, i) => {
+        doc.text(header, colX[i] + 3, y);
+      });
+      
+      return y + 12; // Return next Y position
+    };
+    
+    let yPos = drawHeader(tableTop);
+    
+    // Function to add a new page if needed
+    const checkPage = (requiredSpace = 10) => {
+      if (yPos + requiredSpace > pageHeight - 25) {
+        // Footer for current page
+        addPageFooter();
+        
+        // Add new page
+        doc.addPage();
+        yPos = 30;
+        
+        // Add header on new page
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(...colors.primary);
+        doc.text('Examiner Directory (continued)', margin, yPos);
+        yPos += 10;
+        
+        // Add table header on new page
+        yPos = drawHeader(yPos);
+      }
+      return yPos;
+    };
+    
+    // Add page footer
+    const addPageFooter = () => {
+      const pageNumber = doc.internal.getNumberOfPages();
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(9);
+      doc.setTextColor(...colors.mediumGray);
+      doc.text(`Page ${pageNumber}`, pageWidth - margin, pageHeight - 15, { align: 'right' });
+      
+      // Add thin footer line
+      doc.setDrawColor(...colors.mediumGray);
+      doc.setLineWidth(0.2);
+      doc.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);
+    };
+    
+    // Process examiners data for table
+    const formatExpertise = (areas) => {
+      if (!areas || areas.length === 0) return 'N/A';
+      return areas.slice(0, 2).join(', ') + (areas.length > 2 ? '...' : '');
+    };
+    
+    const formatAvailability = (availability) => {
+      if (!availability || availability.length === 0) return '0 slots';
+      return `${availability.length} slots`;
+    };
+    
+    // Add table rows with improved styling
+    filteredExaminers.forEach((examiner, index) => {
+      const rowHeight = 8;
+      yPos = checkPage(rowHeight + 2);
+      
+      // Add row background for even rows
+      if (index % 2 === 0) {
+        doc.setFillColor(...colors.lightGray);
+        doc.rect(margin, yPos - 6, contentWidth, rowHeight, 'F');
+      }
+      
+      // Add row content
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(...colors.secondary);
+      
+      // Ensure text doesn't overflow by truncating if needed
+      const truncateText = (text, maxWidth) => {
+        if (!text) return 'N/A';
+        if (doc.getStringUnitWidth(text) * doc.internal.getFontSize() / doc.internal.scaleFactor < maxWidth - 10) {
+          return text;
+        }
+        while (doc.getStringUnitWidth(text + '...') * doc.internal.getFontSize() / doc.internal.scaleFactor > maxWidth - 10) {
+          text = text.substring(0, text.length - 1);
+        }
+        return text + '...';
+      };
+      
+      // Draw cell contents
+      doc.text(truncateText(examiner.name || 'N/A', colWidths[0] * contentWidth), colX[0] + 3, yPos);
+      doc.text(truncateText(examiner.department || 'N/A', colWidths[1] * contentWidth), colX[1] + 3, yPos);
+      doc.text(truncateText(examiner.position || 'N/A', colWidths[2] * contentWidth), colX[2] + 3, yPos);
+      doc.text(truncateText(formatExpertise(examiner.areas_of_expertise), colWidths[3] * contentWidth), colX[3] + 3, yPos);
+      doc.text(formatAvailability(examiner.availability), colX[4] + 3, yPos);
+      
+      // Add subtle separator line
+      if (index < filteredExaminers.length - 1) {
+        doc.setDrawColor(...colors.mediumGray, 0.5);
+        doc.setLineWidth(0.1);
+        doc.line(margin + 5, yPos + 3, pageWidth - margin - 5, yPos + 3);
+      }
+      
+      yPos += rowHeight;
+    });
+    
+    // Add final horizontal line with gradient effect
+    drawGradientLine(yPos + 5);
+    
+    // Add footer information
+    yPos += 15;
+    yPos = checkPage();
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(10);
+    doc.setTextColor(...colors.secondary);
+    doc.text('This report was automatically generated from the Examiner Management System.', pageWidth / 2, yPos, { align: 'center' });
+    
+    // Add disclaimer
+    yPos += 5;
+    doc.setFontSize(8);
+    doc.setTextColor(...colors.mediumGray);
+    doc.text('For internal use only. Information contained herein is confidential.', pageWidth / 2, yPos + 5, { align: 'center' });
+    
+    // Add page number at bottom of all pages
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      
+      // No page watermark
+      
+      // Add page footer
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(9);
+      doc.setTextColor(...colors.mediumGray);
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 15, { align: 'right' });
+      
+      // Add thin footer line
+      doc.setDrawColor(...colors.mediumGray);
+      doc.setLineWidth(0.2);
+      doc.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);
+    }
+    
+    // Save the PDF
+    doc.save('examiner-directory-report.pdf');
+  };
+
   if (error) {
     return (
       <Box sx={{ mt: 6, mx: 'auto', maxWidth: '600px' }}>
@@ -232,6 +495,23 @@ const ExaminerList = () => {
 
   return (
     <Container maxWidth="xl">
+      {/* Success Alert */}
+      <Snackbar 
+        open={successAlert.open} 
+        autoHideDuration={4000} 
+        onClose={handleCloseAlert}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseAlert} 
+          severity="success" 
+          variant="filled"
+          sx={{ width: '100%', boxShadow: 3, borderRadius: 2 }}
+        >
+          {successAlert.message}
+        </Alert>
+      </Snackbar>
+
       <Box sx={{ mt: 6, mb: 8 }}>
         <Typography
           variant="h3"
@@ -357,6 +637,14 @@ const ExaminerList = () => {
             }}
           >
             Add New Examiner
+          </Button>
+
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleGenerateReport}
+          >
+            Generate Report
           </Button>
           
           <TextField

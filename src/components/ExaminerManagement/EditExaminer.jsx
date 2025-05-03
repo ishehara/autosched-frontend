@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -21,9 +21,7 @@ import {
   Alert,
   CircularProgress,
   List,
-  ListItem,
   Card,
-  CardContent,
   Container
 } from '@mui/material';
 import { LocalizationProvider, DatePicker, TimePicker } from '@mui/x-date-pickers';
@@ -41,7 +39,6 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SaveIcon from '@mui/icons-material/Save';
 
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -50,8 +47,11 @@ const EditExaminer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [redirectPending, setRedirectPending] = useState(false);
+  const successTimeoutRef = useRef(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -95,6 +95,24 @@ const EditExaminer = () => {
     "DevOps",
     "Game Development",
   ];
+
+  // Clear timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Handle redirect after success message is shown
+  useEffect(() => {
+    if (redirectPending && success) {
+      successTimeoutRef.current = setTimeout(() => {
+        navigate('/ExaminerList');
+      }, 2000);
+    }
+  }, [redirectPending, success, navigate]);
 
   // Fetch examiner data on component mount
   useEffect(() => {
@@ -299,11 +317,14 @@ const EditExaminer = () => {
     
     if (!validateForm()) {
       setError('Please correct the form errors before submitting.');
+      setSuccess(''); // Clear any previous success messages
       return;
     }
     
     try {
-      setLoading(true);
+      setSubmitting(true);
+      setError(''); // Clear any previous errors
+      setSuccess(''); // Clear any previous success messages
       
       // Create a copy of formData without the _id field to prevent the MongoDB error
       const { _id, ...updateData } = formData;
@@ -316,18 +337,18 @@ const EditExaminer = () => {
 
       console.log("API response:", response.data);
       
-      setSuccess('Examiner updated successfully!');
-      setError('');
+      setSubmitting(false);
       
-      // Navigate back to examiner list after short delay
-      setTimeout(() => {
-        navigate('/ExaminerList');
-      }, 2000);
+      // Show success message and set redirect flag
+      window.scrollTo(0, 0); // Scroll to top to ensure message is visible
+      setSuccess('Examiner updated successfully!');
+      setRedirectPending(true);
       
     } catch (err) {
       console.error("Error updating examiner:", err);
       setError(`Error updating examiner: ${err.response?.data?.message || err.message || "Please try again"}`);
-      setLoading(false);
+      setSubmitting(false);
+      setRedirectPending(false);
     }
   };
 
@@ -415,11 +436,19 @@ const EditExaminer = () => {
               <Typography variant="subtitle1">Update examiner details and availability</Typography>
             </Box>
 
-            {/* Alert messages */}
+            {/* Alert messages - fixed position to ensure visibility */}
             {error && (
               <Alert 
                 severity="error" 
-                sx={{ mt: 2, mb: 2 }}
+                sx={{ 
+                  mt: 2, 
+                  mb: 2,
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 10,
+                  width: '100%',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
                 onClose={() => setError('')}
               >
                 {error}
@@ -429,10 +458,23 @@ const EditExaminer = () => {
             {success && (
               <Alert 
                 severity="success" 
-                sx={{ mt: 2, mb: 2 }}
-                onClose={() => setSuccess('')}
+                sx={{ 
+                  mt: 2, 
+                  mb: 2,
+                  position: "sticky",
+                  top: error ? 'auto' : 0,
+                  zIndex: 10,
+                  width: '100%',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  bgcolor: '#e8f5e9',
+                  fontWeight: 'medium',
+                  fontSize: '1rem',
+                  '& .MuiAlert-icon': {
+                    fontSize: '1.25rem'
+                  }
+                }}
               >
-                {success}
+                {success} {redirectPending && "Redirecting to Examiner List..."}
               </Alert>
             )}
 
@@ -759,6 +801,7 @@ const EditExaminer = () => {
                           px: 4,
                           borderRadius: 2,
                         }}
+                        disabled={redirectPending}
                       >
                         Cancel
                       </Button>
@@ -766,7 +809,7 @@ const EditExaminer = () => {
                         type="submit"
                         variant="contained"
                         color="primary"
-                        disabled={loading}
+                        disabled={submitting || redirectPending}
                         sx={{
                           py: 1.5,
                           px: 4,
@@ -775,9 +818,9 @@ const EditExaminer = () => {
                           boxShadow: "0 3px 5px 2px rgba(63, 81, 181, .3)",
                           fontWeight: 'bold',
                         }}
-                        startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+                        startIcon={submitting ? <CircularProgress size={20} /> : <SaveIcon />}
                       >
-                        {loading ? 'Saving...' : 'Save Changes'}
+                        {submitting ? 'Saving...' : 'Save Changes'}
                       </Button>
                     </Box>
                   </Grid>
